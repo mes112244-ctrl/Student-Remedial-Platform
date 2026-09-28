@@ -82,6 +82,7 @@ renderAll();
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
   import {
+   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
     getFirestore,
     collection,
     addDoc,
@@ -102,6 +103,7 @@ renderAll();
   };
 
   const app = initializeApp(firebaseConfig);
+ const auth = getAuth(app);
   const firestoreDB = getFirestore(app);
 
   console.log("Firebase connected successfully");
