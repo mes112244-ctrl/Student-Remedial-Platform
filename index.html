@@ -78,4 +78,32 @@ function saveSettings(){db.mastery=Number(document.getElementById('mastery').val
 db.plans.forEach(p=>{if(!p.skills)p.skills=p.skill?[p.skill]:[];if(!p.activities)p.activities=(p.skills||[]).map((skill,i)=>({id:p.id+i+1,skill,title:`شرح مبسط وتدريب متدرج على: ${skill}`,done:false}));if(!('preScore' in p)){let s=db.students.find(x=>x.id===p.studentId);p.preScore=s?.score??null}if(!p.goal)p.goal='رفع مستوى الإتقان في المهارات المحددة إلى حد الإتقان المعتمد أو أعلى.'});
 renderAll();
 </script>
+ <!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+  import {
+    getFirestore,
+    collection,
+    addDoc,
+    getDocs,
+    setDoc,
+    doc,
+    updateDoc,
+    deleteDoc
+  } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAdLK26u86KAxFT84Uq-xmocOH0VlNgOVs",
+    authDomain: "student-remedial-platform.firebaseapp.com",
+    projectId: "student-remedial-platform",
+    storageBucket: "student-remedial-platform.firebasestorage.app",
+    messagingSenderId: "890281372215",
+    appId: "1:890281372215:web:bf974f7d8f019bdd602db2"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const firestoreDB = getFirestore(app);
+
+  console.log("Firebase connected successfully");
+</script>
 </body></html>
