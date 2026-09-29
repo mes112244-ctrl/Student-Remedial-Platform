@@ -145,6 +145,10 @@ onAuthStateChanged(auth, (user) => {
   }
 });
   console.log("Firebase connected successfully");
+ window.firestoreDB = firestoreDB;
+window.firestoreDoc = doc;
+window.firestoreSetDoc = setDoc;
+window.firestoreGetDocs = getDocs;
 </script>
  <div id="loginScreen" style="
   position:fixed;
