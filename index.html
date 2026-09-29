@@ -149,6 +149,7 @@ onAuthStateChanged(auth, (user) => {
 window.firestoreDoc = doc;
 window.firestoreSetDoc = setDoc;
 window.firestoreGetDocs = getDocs;
+ window.saveStudentToFirestore = async function(student){ await setDoc(doc(firestoreDB,"students",String(student.id)),student); };
 </script>
  <div id="loginScreen" style="
   position:fixed;
