@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>منصة متابعة التحصيل والخطط العلاجية</title>
+<style>
+:root{--bg:#f5f7fa;--card:#fff;--ink:#17212b;--muted:#6b7280;--brand:#315c57;--soft:#e8f1ef;--line:#e5e7eb;--danger:#b42318;--warn:#b54708;--ok:#067647}
+*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:18px 24px;position:sticky;top:0;z-index:3}
+h1{font-size:21px;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:5px}
+.wrap{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 77px)}
+nav{background:#183d3a;padding:18px 12px;color:white}nav button{width:100%;text-align:right;border:0;background:transparent;color:white;padding:12px;border-radius:10px;margin:2px 0;font-size:14px;cursor:pointer}nav button:hover,nav button.active{background:#315c57}
+main{padding:24px}.page{display:none}.page.active{display:block}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:15px 0}
+button.primary{background:var(--brand);color:white;border:0;border-radius:9px;padding:10px 14px;cursor:pointer}
+button.secondary{background:white;border:1px solid var(--line);border-radius:9px;padding:9px 12px;cursor:pointer}
+input,select,textarea{border:1px solid #d0d5dd;border-radius:8px;padding:9px;background:white;font:inherit}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:14px;margin:18px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:17px}.num{font-size:28px;font-weight:700;margin-top:8px}.muted{color:var(--muted)}
+table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:right;font-size:14px}th{background:#f9fafb}
+.badge{padding:5px 9px;border-radius:999px;font-size:12px;display:inline-block}.red{background:#fee4e2;color:var(--danger)}.yellow{background:#fef0c7;color:var(--warn)}.green{background:#dcfae6;color:var(--ok)}
+.modal{display:none;position:fixed;inset:0;background:#0007;align-items:center;justify-content:center;z-index:9}.modal.show{display:flex}.box{background:white;width:min(620px,92vw);border-radius:16px;padding:22px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.box label{font-size:13px;color:var(--muted)}.box input,.box select,.box textarea{width:100%;margin-top:5px}.empty{padding:28px;text-align:center;color:var(--muted)}
+@media(max-width:850px){.wrap{grid-template-columns:1fr}nav{display:flex;overflow-x:auto;overflow-y:hidden;position:sticky;top:77px;z-index:2;padding:8px;gap:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;direction:rtl;white-space:nowrap}nav::-webkit-scrollbar{display:none}nav button{flex:0 0 auto;width:auto;min-width:max-content;white-space:nowrap;padding:12px 14px}.cards{grid-template-columns:repeat(2,1fr)}main{padding:15px}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>منصة متابعة التحصيل والخطط العلاجية</h1><div class="sub">إعداد المعلمة: زهراء آل سليم</div><div id="cloudStatus" class="sub" style="color:#b54708;margin-top:4px">جاري التحقق من الاتصال...</div></header>
+<button type="button" onclick="window.teacherLogout()" style="position:absolute;top:18px;left:20px;z-index:999999;background:#fff;color:#315c57;border:0;border-radius:9px;padding:8px 14px;cursor:pointer;font-weight:bold;">تسجيل الخروج</button> 
+<div class="wrap">
+<nav id="nav"></nav>
+<main>
+<section id="home" class="page active"><h2>لوحة المعلمة</h2><p class="muted">ملخص المتابعة والإجراءات التي تحتاج إلى اهتمام.</p><div class="cards" id="cards"></div><h3>تحتاج إلى إجراء</h3><div id="actions"></div></section>
+<section id="students" class="page"><h2>الطالبات</h2><div class="toolbar"><button class="primary" onclick="openStudent()">+ إضافة طالبة</button><button class="secondary" onclick="document.getElementById('csv').click()">استيراد CSV</button><input id="csv" type="file" accept=".csv" hidden onchange="importCSV(this)"><input id="search" placeholder="بحث باسم الطالبة" oninput="renderStudents()"><select id="filter" onchange="renderStudents()"><option value="">كل الحالات</option><option>متقنة</option><option>تحتاج متابعة</option><option>تحتاج خطة علاجية</option></select></div><div id="studentsTable"></div></section>
+<section id="tests" class="page"><h2>الاختبارات الإلكترونية</h2><div class="toolbar"><button class="primary" onclick="createTest()">+ إنشاء اختبار</button><button class="secondary" onclick="openStudentTest()">تجربة كطالبة</button></div><div id="testsList"></div><div id="testEditor"></div></section>
+<section id="results" class="page"><h2>النتائج وتحليل المهارات</h2><p class="muted">عرض جدولي بدون رسوم بيانية.</p><div id="resultsTable"></div></section>
+<section id="plans" class="page"><h2>الخطط العلاجية</h2><div id="plansTable"></div></section>
+<section id="follow" class="page"><h2>المتابعة</h2><div id="followTable"></div></section>
+<section id="reports" class="page"><h2>التقارير</h2><p class="muted">تقارير نصية وجداول قابلة للطباعة.</p><button class="primary" onclick="window.print()">طباعة التقرير الحالي</button></section>
+<section id="parents" class="page"><h2>أولياء الأمور</h2><div id="parentsTable"></div></section>
+<section id="help" class="page"><h2>❓ طريقة الاستخدام</h2>
+<div class="card"><h3>خطوات العمل</h3>
+<p>1️⃣ أضيفي الطالبات وحددي الصف والشعبة وتخصص/مسار كل شعبة.</p>
+<p>2️⃣ أنشئي اختبارًا، ثم حددي نوع كل سؤال واكتبي المهارة أو ناتج التعلم.</p>
+<p>3️⃣ اعتمدي الاختبار ثم استخدمي «تجربة كطالبة» لتنفيذه.</p>
+<p>4️⃣ ستصحح المنصة الإجابات تلقائيًا وتحدد المهارات غير المتقنة.</p>
+<p>5️⃣ من النتائج أنشئي الخطة العلاجية، ثم تابعي الأنشطة والاختبار البعدي.</p>
+<p>6️⃣ استخدمي التقارير للطباعة والمتابعة.</p></div></section>
+<section id="settings" class="page"><h2>الإعدادات</h2><div class="card"><label>حد الإتقان %</label><br><input id="mastery" type="number" min="1" max="100"><button class="primary" onclick="saveSettings()">حفظ</button></div></section>
+</main></div>
+<div id="studentModal" class="modal"><div class="box"><h3>إضافة طالبة</h3><div class="grid2"><div><label>اسم الطالبة<input id="sname"></label></div><div><label>المرحلة<select id="sstage"><option>أول ثانوي</option><option>ثاني ثانوي</option><option>ثالث ثانوي</option></select></label></div><div><label>الشعبة<input id="sclass" placeholder="مثال: 2/5"></label></div>
+<div><label>تخصص / مسار الشعبة<select id="sspecialty">
+<option>المسار العام</option><option>علوم الحاسب والهندسة</option><option>الصحة والحياة</option><option>إدارة الأعمال</option><option>المسار الشرعي</option><option>أخرى</option>
+</select></label></div><div><label>رقم تعريفي<input id="sid"></label></div></div><div class="toolbar"><button class="primary" onclick="saveStudent()">حفظ</button><button class="secondary" onclick="closeStudent()">إلغاء</button></div></div></div>
+<script>
+const pages=[['home','🏠 الرئيسية'],['students','👩‍🎓 الطالبات'],['tests','📝 الاختبارات'],['results','📋 النتائج'],['plans','🩺 الخطط العلاجية'],['follow','✅ المتابعة'],['reports','🖨️ التقارير'],['parents','👪 أولياء الأمور'],['help','❓ طريقة الاستخدام'],['settings','⚙️ الإعدادات']];
+let db=JSON.parse(localStorage.getItem('remedialDB')||'null')||{students:[],tests:[],plans:[],mastery:70};
+function persist(){
+  // نسخة احتياطية محلية فقط، بينما Firebase هو التخزين الأساسي عند تسجيل الدخول.
+  localStorage.setItem('remedialDB',JSON.stringify(db));
+  renderAll();
+  if(window.syncAllToFirestore) window.syncAllToFirestore();
+}
+document.getElementById('nav').innerHTML=pages.map((p,i)=>`<button class="${i?'':'active'}" onclick="go('${p[0]}',this)">${p[1]}</button>`).join('');
+function go(id,b){document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active')}
+function status(s){if(s.score==null)return 'تحتاج متابعة'; if(s.score>=db.mastery)return 'متقنة'; return 'تحتاج خطة علاجية'}
+function badge(x){return `<span class="badge ${x==='متقنة'?'green':x==='تحتاج خطة علاجية'?'red':'yellow'}">${x}</span>`}
+function renderAll(){
+ let weak=db.students.filter(s=>status(s)==='تحتاج خطة علاجية').length, mastered=db.students.filter(s=>status(s)==='متقنة').length;
+ document.getElementById('cards').innerHTML=[['إجمالي الطالبات',db.students.length],['الطالبات المتقنات',mastered],['تحتاج خطة علاجية',weak],['الخطط النشطة',db.plans.filter(p=>p.state!=='مكتمل').length]].map(x=>`<div class="card"><div class="muted">${x[0]}</div><div class="num">${x[1]}</div></div>`).join('');
+ document.getElementById('actions').innerHTML=weak?tableStudents(db.students.filter(s=>status(s)==='تحتاج خطة علاجية'),true):'<div class="card empty">لا توجد إجراءات عاجلة حاليًا.</div>';
+ renderStudents(); renderTests(); renderResults(); renderPlans(); renderFollow(); renderParents(); document.getElementById('mastery').value=db.mastery;
+}
+function tableStudents(arr,action=false){return `<table><thead><tr><th>الطالبة</th><th>الصف</th><th>الشعبة</th><th>🎓 التخصص/المسار</th><th>النتيجة</th><th>الحالة</th>${action?'<th>الإجراءات</th>':''}</tr></thead><tbody>${arr.map(s=>`<tr><td>${s.name}</td><td>${s.stage}</td><td>${s.className}</td><td>${s.specialty||"المسار العام"}</td><td>${s.score==null?'—':s.score+'%'}</td><td>${badge(status(s))}</td>${action?`<td><button class="secondary" onclick="editStudent('${s.id}')">✏️ تعديل</button> <button class="primary" onclick="makePlan('${s.id}')">🩺 خطة</button> <button class="secondary" onclick="deleteStudent('${s.id}')" style="color:#b42318">🗑️ حذف</button></td>`:''}</tr>`).join('')}</tbody></table>`}
+function renderStudents(){let q=(document.getElementById('search')?.value||'').trim(),f=document.getElementById('filter')?.value||'';let a=db.students.filter(s=>(!q||s.name.includes(q))&&(!f||status(s)===f));document.getElementById('studentsTable').innerHTML=a.length?tableStudents(a,true):'<div class="card empty">لا توجد طالبات بعد.</div>'}
+let editingStudentId=null;
+function openStudent(){editingStudentId=null;document.querySelector('#studentModal h3').textContent='إضافة طالبة';sname.value=sclass.value=sid.value='';sid.disabled=false;document.getElementById('studentModal').classList.add('show')}
+function closeStudent(){document.getElementById('studentModal').classList.remove('show')}
+function editStudent(id){let s=db.students.find(x=>String(x.id)===String(id));if(!s)return;editingStudentId=String(id);document.querySelector('#studentModal h3').textContent='تعديل بيانات الطالبة';sname.value=s.name||'';sstage.value=s.stage||'ثاني ثانوي';sclass.value=s.className||'';sspecialty.value=s.specialty||'المسار العام';sid.value=s.id||'';sid.disabled=true;document.getElementById('studentModal').classList.add('show')}
+function saveStudent(){let name=sname.value.trim();if(!name)return alert('أدخلي اسم الطالبة');if(editingStudentId){let s=db.students.find(x=>String(x.id)===editingStudentId);if(s){s.name=name;s.stage=sstage.value;s.className=sclass.value.trim();s.specialty=sspecialty.value}}else{let id=sid.value.trim()||Date.now().toString();if(db.students.some(x=>String(x.id)===id))return alert('الرقم التعريفي مستخدم لطالبة أخرى');db.students.push({id,name,stage:sstage.value,className:sclass.value.trim(),specialty:sspecialty.value,score:null,skills:[]})}editingStudentId=null;sid.disabled=false;closeStudent();sname.value=sclass.value=sid.value='';persist()}
+async function deleteStudent(id){let s=db.students.find(x=>String(x.id)===String(id));if(!s||!confirm(`هل تريدين حذف الطالبة: ${s.name}؟\nسيتم حذف خططها ونتيجتها أيضًا.`))return;db.students=db.students.filter(x=>String(x.id)!==String(id));let planIds=db.plans.filter(p=>String(p.studentId)===String(id)).map(p=>p.id);db.plans=db.plans.filter(p=>String(p.studentId)!==String(id));persist();if(window.deleteStudentFromFirestore)await window.deleteStudentFromFirestore(id,planIds)}
+function importCSV(inp){let f=inp.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{r.result.split(/\r?\n/).filter(Boolean).forEach((line,i)=>{let c=line.split(',');if(i===0&&/اسم|name/i.test(c[0]))return;db.students.push({id:(c[3]||Date.now()+i)+'',name:(c[0]||'').trim(),stage:(c[1]||'ثاني ثانوي').trim(),className:(c[2]||'').trim(),specialty:(c[4]||'المسار العام').trim(),score:null,skills:[]})});persist()};r.readAsText(f,'UTF-8')}
+function createTest(){let title=prompt('اسم الاختبار التشخيصي');if(!title)return;db.tests.push({id:Date.now(),title,state:'مسودة',items:[]});persist();editTest(db.tests[db.tests.length-1].id)}
+function renderTests(){testsList.innerHTML=db.tests.length?`<table><tr><th>الاختبار</th><th>عدد الأسئلة</th><th>الحالة</th><th>إجراء</th></tr>${db.tests.map(t=>`<tr><td>${t.title}</td><td>${(t.items||[]).length}</td><td>${t.state}</td><td><button class="secondary" onclick="editTest(${t.id})">✏️ تحرير</button> <button class="primary" onclick="publishTest(${t.id})">✅ اعتماد</button> <button class="secondary" onclick="duplicateTest(${t.id})">📄 نسخ</button> <button class="secondary" onclick="deleteTest(${t.id})" style="color:#b42318">🗑️ حذف</button></td></tr>`).join('')}</table>`:'<div class="card empty">أنشئي أول اختبار تشخيصي.</div>'}
+function editTest(id){
+ let t=db.tests.find(x=>x.id===id);if(!t)return;
+ testEditor.innerHTML=`<div class="card" style="margin-top:16px"><h3>تحرير: ${t.title}</h3>
+ <div class="grid2">
+ <div><label>نوع السؤال<select id="qtype" onchange="updateQuestionType()"><option value="mcq">اختيار من متعدد</option><option value="tf">صح / خطأ</option></select></label></div>
+ <div><label>المهارة / ناتج التعلم<input id="qskill" placeholder="مثال: تحديد موقع مركز الكتلة"></label></div>
+ <div style="grid-column:1/-1"><label>نص السؤال<input id="qtext" placeholder="اكتبي نص السؤال"></label></div>
+ <input id="qa" placeholder="الخيار أ"><input id="qb" placeholder="الخيار ب">
+ <input id="qc" placeholder="الخيار ج"><input id="qd" placeholder="الخيار د">
+ <select id="qcorrect"><option value="0">الإجابة الصحيحة: أ</option><option value="1">الإجابة الصحيحة: ب</option><option value="2">الإجابة الصحيحة: ج</option><option value="3">الإجابة الصحيحة: د</option></select>
+ </div><div class="toolbar"><button class="primary" onclick="addQuestion(${id})">إضافة السؤال</button></div>
+ <div>${(t.items||[]).map((q,i)=>`<div style="padding:9px 0;border-bottom:1px solid var(--line)"><b>${i+1}. ${q.text}</b> <span class="badge">${q.type==='tf'?'صح/خطأ':'اختيار من متعدد'}</span> — <span class="muted">${q.skill}</span> <button class="secondary" onclick="deleteQuestion(${id},${i})">🗑️ حذف السؤال</button></div>`).join('')||'<p class="muted">لم تتم إضافة أسئلة بعد.</p>'}</div></div>`;
+ updateQuestionType();
+}
+function updateQuestionType(){
+ let type=document.getElementById('qtype')?.value;
+ let a=document.getElementById('qa'),b=document.getElementById('qb'),c=document.getElementById('qc'),d=document.getElementById('qd'),correct=document.getElementById('qcorrect');
+ if(!a||!b||!c||!d||!correct)return;
+ if(type==='tf'){
+   a.value='صح';b.value='خطأ';a.readOnly=true;b.readOnly=true;c.value='';d.value='';c.style.display='none';d.style.display='none';
+   correct.innerHTML='<option value="0">الإجابة الصحيحة: صح</option><option value="1">الإجابة الصحيحة: خطأ</option>';
+ }else{
+   if(a.readOnly){a.value='';b.value='';} a.readOnly=false;b.readOnly=false;c.style.display='';d.style.display='';
+   correct.innerHTML='<option value="0">الإجابة الصحيحة: أ</option><option value="1">الإجابة الصحيحة: ب</option><option value="2">الإجابة الصحيحة: ج</option><option value="3">الإجابة الصحيحة: د</option>';
+ }
+}
+function addQuestion(id){
+ let t=db.tests.find(x=>x.id===id),type=qtype.value;
+ let opts=type==='tf'?['صح','خطأ']:[qa.value,qb.value,qc.value,qd.value];
+ if(!qtext.value.trim()||!qskill.value.trim()||opts.some(x=>!x.trim()))return alert(type==='tf'?'أكملي نص السؤال والمهارة':'أكملي السؤال والمهارة والخيارات الأربعة');
+ t.items.push({type,text:qtext.value.trim(),skill:qskill.value.trim(),options:opts,correct:Number(qcorrect.value)});
+ persist();editTest(id);
+}
+function publishTest(id){let t=db.tests.find(x=>x.id===id);if(!t.items?.length)return alert('أضيفي سؤالًا واحدًا على الأقل');t.state='معتمد';persist();alert('تم اعتماد الاختبار وأصبح جاهزًا للطالبة')}
+function deleteQuestion(id,index){let t=db.tests.find(x=>x.id===id);if(!t)return;if(confirm('حذف هذا السؤال؟')){t.items.splice(index,1);persist();editTest(id)}}
+function duplicateTest(id){let t=db.tests.find(x=>x.id===id);if(!t)return;let copy=JSON.parse(JSON.stringify(t));copy.id=Date.now();copy.title=t.title+' - نسخة';copy.state='مسودة';db.tests.push(copy);persist()}
+function deleteTest(id){let t=db.tests.find(x=>x.id===id);if(!t||!confirm(`حذف الاختبار: ${t.title}؟`))return;db.tests=db.tests.filter(x=>x.id!==id);testEditor.innerHTML='';persist()}
+
+function openStudentTest(){let tests=db.tests.filter(t=>t.state==='معتمد'&&t.items?.length);if(!tests.length)return alert('لا يوجد اختبار معتمد بعد');let t=tests[tests.length-1];let sid=prompt('أدخلي الرقم التعريفي للطالبة');let s=db.students.find(x=>x.id===sid);if(!s)return alert('لم يتم العثور على الطالبة');let answers=[];for(let i=0;i<t.items.length;i++){let q=t.items[i];let msg=`${i+1}) ${q.text}\n\n${q.options.map((o,j)=>(j+1)+'- '+o).join('\n')}`;let a=Number(prompt(msg))-1;answers.push(a)}gradeTest(s,t,answers)}
+function gradeTest(s,t,answers){let correct=0,skills={};t.items.forEach((q,i)=>{let ok=answers[i]===q.correct;if(ok)correct++;if(!skills[q.skill])skills[q.skill]={right:0,total:0};skills[q.skill].total++;if(ok)skills[q.skill].right++});s.score=Math.round(correct/t.items.length*100);s.skills=Object.entries(skills).filter(([k,v])=>Math.round(v.right/v.total*100)<db.mastery).map(([k])=>k);s.lastTest=t.title;s.skillResults=skills;persist();alert(`تم التصحيح تلقائيًا\nالنتيجة: ${s.score}%\nالمهارات غير المتقنة: ${s.skills.join('، ')||'لا توجد'}`)}
+function renderResults(){if(!db.students.length){resultsTable.innerHTML='<div class="card empty">تظهر النتائج هنا بعد إضافة الطالبات والاختبارات.</div>';return}let tested=db.students.filter(s=>s.score!=null),avg=tested.length?Math.round(tested.reduce((a,s)=>a+s.score,0)/tested.length):0,mastered=tested.filter(s=>s.score>=db.mastery).length;resultsTable.innerHTML=`<div class="cards" style="grid-template-columns:repeat(3,minmax(130px,1fr))"><div class="card"><div class="muted">تم اختبارهن</div><div class="num">${tested.length}</div></div><div class="card"><div class="muted">متوسط النتائج</div><div class="num">${tested.length?avg+'%':'—'}</div></div><div class="card"><div class="muted">حققن الإتقان</div><div class="num">${mastered}</div></div></div><table><tr><th>الطالبة</th><th>آخر اختبار</th><th>الدرجة</th><th>المهارات غير المتقنة</th><th>الحالة</th><th>إجراء</th></tr>${db.students.map(s=>`<tr><td>${s.name}</td><td>${s.lastTest||'—'}</td><td>${s.score==null?'—':s.score+'%'}</td><td>${s.skills?.join('، ')||'—'}</td><td>${badge(status(s))}</td><td>${s.score!=null&&s.score<db.mastery?`<button class="primary" onclick="makePlan('${s.id}')">🩺 إنشاء خطة</button>`:'—'}</td></tr>`).join('')}</table>`}
+function makePlan(id){let s=db.students.find(x=>x.id===id);if(!s)return;if(db.plans.some(p=>p.studentId===id&&p.state!=='مكتمل'))return alert('للطالبة خطة نشطة بالفعل');let skills=(s.skills&&s.skills.length?s.skills:['المهارة غير المتقنة']);let activities=skills.map((skill,i)=>({id:Date.now()+i,skill,title:`شرح مبسط وتدريب متدرج على: ${skill}`,done:false}));db.plans.push({id:Date.now(),studentId:id,skills,goal:'رفع مستوى الإتقان في المهارات المحددة إلى حد الإتقان المعتمد أو أعلى.',activities,state:'مسودة',parentSeen:false,preScore:s.score,postScore:null,postSkillResults:{},notes:''});persist();alert('تم إنشاء مسودة خطة علاجية تلقائيًا حسب المهارات غير المتقنة. راجعيها ثم اعتمديها.')}
+function approvePlan(id){let p=db.plans.find(x=>x.id===id);if(!p)return;p.state='قيد التنفيذ';persist();alert('تم اعتماد الخطة وأصبحت جاهزة للمتابعة')}
+function toggleActivity(pid,aid){let p=db.plans.find(x=>x.id===pid),a=p?.activities.find(x=>x.id===aid);if(!a)return;a.done=!a.done;if(p.activities.every(x=>x.done)&&p.state==='قيد التنفيذ')p.state='بانتظار الاختبار البعدي';persist()}
+function editPlan(id){let p=db.plans.find(x=>x.id===id);if(!p)return;let goal=prompt('الهدف العلاجي',p.goal);if(goal!==null)p.goal=goal;let note=prompt('ملاحظات المعلمة',p.notes||'');if(note!==null)p.notes=note;persist()}
+function runPostTest(id){let p=db.plans.find(x=>x.id===id),s=db.students.find(x=>x.id===p?.studentId);if(!p||!s)return;if(!p.activities.every(x=>x.done))return alert('أكملي الأنشطة العلاجية أولًا');let tests=db.tests.filter(t=>t.state==='معتمد'&&t.items?.some(q=>p.skills.includes(q.skill)));if(!tests.length)return alert('لا يوجد اختبار معتمد يحتوي أسئلة مرتبطة بهذه المهارات');let t=tests[tests.length-1],items=t.items.filter(q=>p.skills.includes(q.skill)),answers=[];for(let i=0;i<items.length;i++){let q=items[i];let msg=`اختبار بعدي — ${i+1}) ${q.text}\n\n${q.options.map((o,j)=>(j+1)+'- '+o).join('\n')}`;answers.push(Number(prompt(msg))-1)}let correct=0,skills={};items.forEach((q,i)=>{let ok=answers[i]===q.correct;if(ok)correct++;if(!skills[q.skill])skills[q.skill]={right:0,total:0};skills[q.skill].total++;if(ok)skills[q.skill].right++});p.postScore=Math.round(correct/items.length*100);p.postSkillResults=skills;p.state=p.postScore>=db.mastery?'مكتمل':'يحتاج دورة علاجية إضافية';persist();alert(`النتيجة القبلية: ${p.preScore??'—'}%\nالنتيجة البعدية: ${p.postScore}%\n${p.state}`)}
+function renderPlans(){plansTable.innerHTML=db.plans.length?`<table><tr><th>الطالبة</th><th>المهارات</th><th>الهدف</th><th>الحالة</th><th>إجراء</th></tr>${db.plans.map(p=>{let s=db.students.find(x=>x.id===p.studentId);return `<tr><td>${s?.name||'—'}</td><td>${(p.skills||[p.skill]).join('، ')}</td><td>${p.goal||'رفع مستوى الإتقان'}</td><td>${badge(p.state==='مكتمل'?'متقنة':p.state==='يحتاج دورة علاجية إضافية'?'تحتاج خطة علاجية':'تحتاج متابعة')}<br><small>${p.state}</small></td><td><button class="secondary" onclick="editPlan(${p.id})">تعديل</button> ${p.state==='مسودة'?`<button class="primary" onclick="approvePlan(${p.id})">اعتماد</button>`:''}</td></tr>`}).join('')}</table>`:'<div class="card empty">لا توجد خطط علاجية بعد.</div>'}
+function renderFollow(){followTable.innerHTML=db.plans.length?db.plans.map(p=>{let s=db.students.find(x=>x.id===p.studentId);return `<div class="card" style="margin-bottom:14px"><h3>${s?.name||'—'}</h3><p class="muted">${(p.skills||[p.skill]).join('، ')} — ${p.state}</p><p><b>النتيجة القبلية:</b> ${p.preScore??'—'}% &nbsp; <b>النتيجة البعدية:</b> ${p.postScore==null?'—':p.postScore+'%'}</p><table><tr><th>النشاط العلاجي</th><th>الحالة</th><th>تحديث</th></tr>${(p.activities||[]).map(a=>`<tr><td>${a.title}</td><td>${a.done?'🟢 مكتمل':'⬜ لم يكتمل'}</td><td><button class="secondary" onclick="toggleActivity(${p.id},${a.id})">${a.done?'إلغاء الإنجاز':'تم الإنجاز'}</button></td></tr>`).join('')}</table><div class="toolbar"><button class="primary" onclick="runPostTest(${p.id})">إجراء الاختبار البعدي</button></div></div>`}).join(''):'<div class="card empty">لا توجد خطط للمتابعة.</div>'}
+function renderParents(){parentsTable.innerHTML=db.plans.length?`<table><tr><th>الطالبة</th><th>الخطة</th><th>اطلاع ولي الأمر</th></tr>${db.plans.map(p=>{let s=db.students.find(x=>x.id===p.studentId);return `<tr><td>${s?.name||'—'}</td><td>${(p.skills||[p.skill]).filter(Boolean).join('، ')||'—'}</td><td>${p.parentSeen?'تم الاطلاع':`<button class="secondary" onclick="seen(${p.id})">تم الاطلاع</button>`}</td></tr>`}).join('')}</table>`:'<div class="card empty">لا توجد إشعارات لأولياء الأمور.</div>'}
+function seen(id){let p=db.plans.find(x=>x.id===id);p.parentSeen=true;persist()}
+function saveSettings(){db.mastery=Number(document.getElementById('mastery').value)||70;persist();alert('تم حفظ حد الإتقان')}
+db.students.forEach(s=>{if(!s.specialty)s.specialty='المسار العام'});db.tests.forEach(t=>(t.items||[]).forEach(q=>{if(!q.type)q.type=(q.options||[]).length===2?'tf':'mcq'}));
+db.plans.forEach(p=>{if(!p.skills)p.skills=p.skill?[p.skill]:[];if(!p.activities)p.activities=(p.skills||[]).map((skill,i)=>({id:p.id+i+1,skill,title:`شرح مبسط وتدريب متدرج على: ${skill}`,done:false}));if(!('preScore' in p)){let s=db.students.find(x=>x.id===p.studentId);p.preScore=s?.score??null}if(!p.goal)p.goal='رفع مستوى الإتقان في المهارات المحددة إلى حد الإتقان المعتمد أو أعلى.'});
+renderAll();
+</script>
+ <!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+import {
+  getFirestore,
+  getDocs,
+  setDoc,
+  deleteDoc,
+  doc,
+  collection
+} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAdLK26u86KAxFT84Uq-xmocOH0VlNgOVs",
+  authDomain: "student-remedial-platform.firebaseapp.com",
+  projectId: "student-remedial-platform",
+  storageBucket: "student-remedial-platform.firebasestorage.app",
+  messagingSenderId: "890281372215",
+  appId: "1:890281372215:web:bf974f7d8f019bdd602db2"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const firestoreDB = getFirestore(app);
+let cloudReady = false;
+let syncing = false;
+
+function mergeById(localArr=[], cloudArr=[]){
+  const map = new Map();
+  [...localArr, ...cloudArr].forEach(x => {
+    if(x && x.id !== undefined && x.id !== null) map.set(String(x.id), x);
+  });
+  return [...map.values()];
+}
+
+async function readCollection(name){
+  const snap = await getDocs(collection(firestoreDB, name));
+  return snap.docs.map(d => ({...d.data(), id: d.data().id ?? d.id}));
+}
+
+async function loadFromFirestore(){
+  const cloudStatus = document.getElementById("cloudStatus");
+  try{
+    if(cloudStatus){
+      cloudStatus.textContent = "☁️ جارٍ تحميل البيانات من Firebase...";
+      cloudStatus.style.color = "#315c57";
+    }
+
+    const [cloudStudents, cloudTests, cloudPlans, cloudResults] = await Promise.all([
+      readCollection("students"),
+      readCollection("tests"),
+      readCollection("remedialPlans"),
+      readCollection("results")
+    ]);
+
+    // دمج آمن لأول انتقال إلى السحابة حتى لا تضيع البيانات الموجودة على الآيباد.
+    db.students = mergeById(db.students || [], cloudStudents);
+    db.tests = mergeById(db.tests || [], cloudTests);
+    db.plans = mergeById(db.plans || [], cloudPlans);
+
+    // استعادة النتائج وربطها بسجل الطالبة.
+    cloudResults.filter(r => String(r.id) !== "__settings__").forEach(r => {
+      const s = db.students.find(x => String(x.id) === String(r.studentId || r.id));
+      if(s){
+        if("score" in r) s.score = r.score;
+        if(Array.isArray(r.skills)) s.skills = r.skills;
+        if("lastTest" in r) s.lastTest = r.lastTest;
+        if("skillResults" in r) s.skillResults = r.skillResults;
+      }
+    });
+
+    // حفظ حد الإتقان في results/__settings__ لتوافقه مع قواعد Firestore الحالية.
+    const settings = cloudResults.find(r => String(r.id) === "__settings__");
+    if(settings && Number(settings.mastery)) db.mastery = Number(settings.mastery);
+
+    localStorage.setItem("remedialDB", JSON.stringify(db));
+    renderAll();
+
+    cloudReady = true;
+    await window.syncAllToFirestore();
+
+    if(cloudStatus){
+      cloudStatus.textContent = "☁️ متصلة بقاعدة البيانات — تم تحميل البيانات";
+      cloudStatus.style.color = "#067647";
+    }
+  }catch(error){
+    console.error("Firestore load error:", error);
+    cloudReady = false;
+    if(cloudStatus){
+      cloudStatus.textContent = "⚠️ تعذر تحميل Firebase — تعمل النسخة المحلية الاحتياطية";
+      cloudStatus.style.color = "#b42318";
+    }
+  }
+}
+
+window.syncAllToFirestore = async function(){
+  if(!auth.currentUser || syncing) return;
+  syncing = true;
+  const cloudStatus = document.getElementById("cloudStatus");
+  try{
+    if(cloudStatus && cloudReady){
+      cloudStatus.textContent = "☁️ جارٍ حفظ التغييرات...";
+      cloudStatus.style.color = "#315c57";
+    }
+
+    const jobs = [];
+
+    (db.students || []).forEach(s => {
+      jobs.push(setDoc(doc(firestoreDB, "students", String(s.id)), s));
+      jobs.push(setDoc(doc(firestoreDB, "results", String(s.id)), {
+        id: String(s.id),
+        studentId: String(s.id),
+        name: s.name || "",
+        score: s.score ?? null,
+        skills: s.skills || [],
+        lastTest: s.lastTest || "",
+        skillResults: s.skillResults || {}
+      }));
+    });
+
+    (db.tests || []).forEach(t => {
+      jobs.push(setDoc(doc(firestoreDB, "tests", String(t.id)), t));
+    });
+
+    (db.plans || []).forEach(p => {
+      jobs.push(setDoc(doc(firestoreDB, "remedialPlans", String(p.id)), p));
+    });
+
+    jobs.push(setDoc(doc(firestoreDB, "results", "__settings__"), {
+      id: "__settings__",
+      mastery: Number(db.mastery) || 70,
+      updatedAt: new Date().toISOString()
+    }));
+
+    await Promise.all(jobs);
+
+    if(cloudStatus){
+      cloudStatus.textContent = "☁️ محفوظة في Firebase";
+      cloudStatus.style.color = "#067647";
+    }
+  }catch(error){
+    console.error("Firestore sync error:", error);
+    if(cloudStatus){
+      cloudStatus.textContent = "⚠️ لم يكتمل الحفظ في Firebase";
+      cloudStatus.style.color = "#b42318";
+    }
+  }finally{
+    syncing = false;
+  }
+};
+
+window.saveStudentToFirestore = async function(){
+  // الحفظ العام يتم تلقائيًا من persist().
+  if(window.syncAllToFirestore) await window.syncAllToFirestore();
+};
+
+window.teacherLogin = async function(){
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const message = document.getElementById("loginMessage");
+
+  if(!email || !password){
+    message.style.color = "#b42318";
+    message.textContent = "يرجى إدخال البريد الإلكتروني وكلمة المرور";
+    return;
+  }
+
+  try{
+    message.style.color = "#315c57";
+    message.textContent = "جارٍ تسجيل الدخول...";
+    await signInWithEmailAndPassword(auth, email, password);
+    message.style.color = "#067647";
+    message.textContent = "✅ تم تسجيل الدخول بنجاح";
+  }catch(error){
+    console.error(error);
+    message.style.color = "#b42318";
+    const messages = {
+      "auth/invalid-credential":"البريد الإلكتروني أو كلمة المرور غير صحيحة.",
+      "auth/invalid-email":"صيغة البريد الإلكتروني غير صحيحة.",
+      "auth/too-many-requests":"محاولات كثيرة. انتظري قليلًا ثم حاولي مرة أخرى.",
+      "auth/network-request-failed":"تعذر الاتصال بالإنترنت. تحققي من الشبكة ثم حاولي مرة أخرى."
+    };
+    message.textContent = messages[error.code] || ("تعذر تسجيل الدخول: " + (error.code || "خطأ غير معروف"));
+  }
+};
+
+onAuthStateChanged(auth, async (user) => {
+  const loginScreen = document.getElementById("loginScreen");
+  const platform = document.querySelector(".wrap");
+  const cloudStatus = document.getElementById("cloudStatus");
+  const logoutButton = document.querySelector('button[onclick="window.teacherLogout()"]');
+
+  if(!loginScreen || !platform) return;
+
+  if(user){
+    loginScreen.style.display = "none";
+    platform.style.display = "";
+    if(logoutButton) logoutButton.style.display = "";
+    if(cloudStatus){
+      cloudStatus.textContent = "☁️ تم تسجيل الدخول — جارٍ مزامنة البيانات";
+      cloudStatus.style.color = "#315c57";
+    }
+    await loadFromFirestore();
+  }else{
+    cloudReady = false;
+    loginScreen.style.display = "flex";
+    platform.style.display = "none";
+    if(logoutButton) logoutButton.style.display = "none";
+    if(cloudStatus){
+      cloudStatus.textContent = "غير مسجلة الدخول";
+      cloudStatus.style.color = "#b54708";
+    }
+  }
+});
+
+window.deleteStudentFromFirestore = async function(id,planIds=[]){
+  if(!auth.currentUser) return;
+  try{
+    const jobs=[
+      deleteDoc(doc(firestoreDB,"students",String(id))),
+      deleteDoc(doc(firestoreDB,"results",String(id)))
+    ];
+    (planIds||[]).forEach(pid=>jobs.push(deleteDoc(doc(firestoreDB,"remedialPlans",String(pid)))));
+    await Promise.all(jobs);
+  }catch(error){console.error("Firestore delete error:",error);alert("تم الحذف من الشاشة، لكن تعذر إكمال الحذف من Firebase. تحققي من قواعد Firestore.");}
+};
+
+window.teacherLogout = async function(){
+  try{
+    await signOut(auth);
+  }catch(error){
+    console.error(error);
+    alert("تعذر تسجيل الخروج");
+  }
+};
+
+console.log("Firebase connected successfully");
+</script>
+ <div id="loginScreen" style="
+  position:fixed;
+  inset:0;
+  background:#f7f5f2;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:99999;
+  direction:rtl;
+  font-family:Tahoma,Arial,sans-serif;
+">
+  <div style="
+    width:min(420px,90%);
+    background:white;
+    padding:28px;
+    border-radius:18px;
+    box-shadow:0 8px 30px rgba(0,0,0,.12);
+  ">
+    <h2 style="text-align:center;margin-top:0;">
+      تسجيل دخول المعلمة
+    </h2>
+
+    <p style="text-align:center;color:#666;">
+      منصة متابعة التحصيل والخطط العلاجية
+    </p>
+
+    <input
+      id="loginEmail"
+      type="email"
+      placeholder="البريد الإلكتروني"
+      autocomplete="username"
+      style="width:100%;box-sizing:border-box;padding:13px;margin:8px 0;border:1px solid #ccc;border-radius:9px;"
+    >
+
+    <input
+      id="loginPassword"
+      type="password"
+      placeholder="كلمة المرور"
+      autocomplete="current-password"
+      style="width:100%;box-sizing:border-box;padding:13px;margin:8px 0;border:1px solid #ccc;border-radius:9px;"
+    >
+
+    <button
+      type="button"
+      onclick="window.teacherLogin()"
+      style="width:100%;padding:13px;margin-top:10px;border:0;border-radius:9px;background:#315c57;color:white;font-size:16px;"
+    >
+      تسجيل الدخول
+    </button>
+
+    <div id="loginMessage" style="
+      text-align:center;
+      margin-top:12px;
+      color:#b42318;
+      min-height:22px;
+    "></div>
+  </div>
+</div>
+</body>
+ </html>
+
