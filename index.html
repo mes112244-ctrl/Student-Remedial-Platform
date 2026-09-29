@@ -79,19 +79,24 @@ db.plans.forEach(p=>{if(!p.skills)p.skills=p.skill?[p.skill]:[];if(!p.activities
 renderAll();
 </script>
  <!-- Firebase -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-  import {
-   import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
-    getFirestore,
-    collection,
-    addDoc,
-    getDocs,
-    setDoc,
-    doc,
-    updateDoc,
-    deleteDoc
-  } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+<script type="module"> 
+ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+
+import {
+  getFirestore,
+  addDoc,
+  getDocs,
+  setDoc,
+  doc,
+  updateDoc,
+  deleteDoc
+} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";  
 
   const firebaseConfig = {
     apiKey: "AIzaSyAdLK26u86KAxFT84Uq-xmocOH0VlNgOVs",
