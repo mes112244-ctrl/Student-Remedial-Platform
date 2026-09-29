@@ -151,7 +151,7 @@ onAuthStateChanged(auth, (user) => {
 window.firestoreDoc = doc;
 window.firestoreSetDoc = setDoc;
 window.firestoreGetDocs = getDocs;
- window.saveStudentToFirestore = async function(student){ await setDoc(doc(firestoreDB,"students",String(student.id)),student); };
+window.saveStudentToFirestore = async function(student){ try { await setDoc(doc(firestoreDB,"students",String(student.id)),student); alert("✅ تم حفظ الطالبة في Firebase"); } catch(error) { console.error(error); alert("خطأ Firebase: " + error.code); } };
  window.teacherLogout = async function() {
   try {
     await signOut(auth);
