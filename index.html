@@ -128,7 +128,7 @@ window.teacherLogin = async function () {
     message.textContent = "";
   } catch (error) {
     console.error(error);
-    message.textContent = "تعذر تسجيل الدخول. تأكدي من البريد الإلكتروني وكلمة المرور.";
+    message.textContent = "خطأ:" + error.code;
   }
 };
 
