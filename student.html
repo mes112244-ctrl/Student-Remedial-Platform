@@ -1,0 +1,74 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>دخول الطالبة | منصة الخطط العلاجية</title>
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Tahoma, Arial, sans-serif;
+  background: #f0f6f4;
+  color: #24453f;
+}
+main {
+  max-width: 440px;
+  margin: 70px auto;
+  padding: 28px;
+  background: white;
+  border-radius: 18px;
+  box-shadow: 0 5px 24px #173b301a;
+  text-align: center;
+}
+h1 { font-size: 24px; }
+p { line-height: 1.8; }
+input, button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 12px;
+  font: inherit;
+  border-radius: 10px;
+}
+input { border: 1px solid #b9cbc5; }
+button {
+  background: #315c57;
+  color: white;
+  border: 0;
+  cursor: pointer;
+}
+.notice { font-size: 13px; color: #687a75; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🎓 بوابة الطالبة</h1>
+  <h2>منصة متابعة التحصيل والخطط العلاجية</h2>
+  <p>مرحبًا بكِ في رحلتك نحو الإتقان والتميز</p>
+
+  <input
+    type="text"
+    placeholder="أدخلي رمز الدخول الخاص بكِ"
+    aria-label="رمز دخول الطالبة"
+    autocomplete="off"
+  >
+
+  <button type="button" onclick="showNotice()">
+    دخول الاختبار
+  </button>
+
+  <p id="message" role="status"></p>
+  <p class="notice">
+    نسخة تجريبية – لم يتم تفعيل دخول الطالبات بعد.
+  </p>
+</main>
+
+<script>
+function showNotice() {
+  document.getElementById("message").textContent =
+    "هذه صفحة تجريبية. سيتم تفعيل الدخول بعد إعداد الحماية والاختبارات.";
+}
+</script>
+</body>
+</html>
