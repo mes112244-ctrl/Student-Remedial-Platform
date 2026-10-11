@@ -1,0 +1,64 @@
+// مسودة فقط — لا تنشري هذا الملف قبل اختبار Firebase Emulator.
+// لا يستبدل قواعد المشروع الحالية تلقائيًا.
+// تحقق من صلاحية المعلمة في users/{uid} قبل دمج هذه القواعد.
+// IMPORTANT: Firestore rules do not conceal fields. Only publish answer-free questions.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function teacher() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true;
+    }
+    function anonymousStudent() {
+      return signedIn() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+    // Maintain existing teacher-only access for private collections.
+    match /students/{id} { allow read, write: if teacher(); }
+    match /tests/{id} { allow read, write: if teacher(); }
+    match /results/{id} { allow read, write: if teacher(); }
+    match /remedialPlans/{id} { allow read, write: if teacher(); }
+    match /users/{id} { allow read, write: if teacher(); }
+
+    // Only teacher creates sanitized copies WITHOUT correct answers.
+    match /publishedTests/{testId} {
+      allow get: if teacher() || (
+        anonymousStudent()
+        && exists(/databases/$(database)/documents/examSessions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/examSessions/$(request.auth.uid)).data.testId == testId
+      );
+      allow list: if teacher();
+      allow create, update: if teacher()
+        && request.resource.data.keys().hasOnly(['id','title','items','state'])
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 100;
+      allow delete: if teacher();
+    }
+
+    // Teacher provisions a one-time anonymous session tied to a test.
+    // Anonymous clients cannot create or change these records.
+    match /examSessions/{uid} {
+      allow get: if teacher() || (anonymousStudent() && request.auth.uid == uid);
+      allow list, create, update, delete: if teacher();
+    }
+
+    // One submission per session; clients cannot provide a score.
+    match /examSubmissions/{uid} {
+      allow get, list: if teacher();
+      allow create: if anonymousStudent()
+        && request.auth.uid == uid
+        && exists(/databases/$(database)/documents/examSessions/$(uid))
+        && request.resource.data.keys().hasOnly(['testId','answers','submittedAt'])
+        && request.resource.data.testId ==
+          get(/databases/$(database)/documents/examSessions/$(uid)).data.testId
+        && request.resource.data.answers is list
+        && request.resource.data.answers.size() <= 100
+        && request.resource.data.submittedAt == request.time;
+      allow update, delete: if teacher();
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
