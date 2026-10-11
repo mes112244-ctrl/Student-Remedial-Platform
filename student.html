@@ -71,7 +71,7 @@ if(new URLSearchParams(location.search).get('preview')==='1'){
    const submit=document.createElement('button');submit.type='submit';submit.className='wide';submit.textContent='إنهاء المعاينة';
    form.appendChild(submit);
    form.addEventListener('submit',e=>{
-    e.preventDefault();$("quiz").style.display="none";$("done").style.display="block";
+    e.preventDefault();e.stopImmediatePropagation();$("quiz").style.display="none";$("done").style.display="block";
     $("feedback").textContent="اكتملت معاينة الاختبار. لم يتم تصحيح الإجابات أو حفظها في Firebase.";
    },{once:true,capture:true});
   }
