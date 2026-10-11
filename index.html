@@ -79,7 +79,7 @@ function saveStudent(){let name=sname.value.trim();if(!name)return alert('أدخ
 async function deleteStudent(id){let s=db.students.find(x=>String(x.id)===String(id));if(!s||!confirm(`هل تريدين حذف الطالبة: ${s.name}؟\nسيتم حذف خططها ونتيجتها أيضًا.`))return;db.students=db.students.filter(x=>String(x.id)!==String(id));let planIds=db.plans.filter(p=>String(p.studentId)===String(id)).map(p=>p.id);db.plans=db.plans.filter(p=>String(p.studentId)!==String(id));persist();if(window.deleteStudentFromFirestore)await window.deleteStudentFromFirestore(id,planIds)}
 function importCSV(inp){let f=inp.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{r.result.split(/\r?\n/).filter(Boolean).forEach((line,i)=>{let c=line.split(',');if(i===0&&/اسم|name/i.test(c[0]))return;db.students.push({id:(c[3]||Date.now()+i)+'',name:(c[0]||'').trim(),stage:(c[1]||'ثاني ثانوي').trim(),className:(c[2]||'').trim(),specialty:(c[4]||'المسار العام').trim(),score:null,skills:[]})});persist()};r.readAsText(f,'UTF-8')}
 function createTest(){let title=prompt('اسم الاختبار التشخيصي');if(!title)return;db.tests.push({id:Date.now(),title,state:'مسودة',items:[]});persist();editTest(db.tests[db.tests.length-1].id)}
-function renderTests(){testsList.innerHTML=db.tests.length?`<table><tr><th>الاختبار</th><th>عدد الأسئلة</th><th>الحالة</th><th>إجراء</th></tr>${db.tests.map(t=>`<tr><td>${t.title}</td><td>${(t.items||[]).length}</td><td>${t.state}</td><td><button class="secondary" onclick="editTest(${t.id})">✏️ تحرير</button> <button class="primary" onclick="publishTest(${t.id})">✅ اعتماد</button> <button class="secondary" onclick="previewApprovedTest(${t.id})">👁️ معاينة الأسئلة</button> <button class="secondary" onclick="exportStudentQuestions(${t.id})">⬇️ ملف أسئلة الطالبات</button> <button class="secondary" onclick="previewInStudentPortal(${t.id})">🎓 عرض في بوابة الطالبة</button> <button class="secondary" onclick="duplicateTest(${t.id})">📄 نسخ</button> <button class="secondary" onclick="deleteTest(${t.id})" style="color:#b42318">🗑️ حذف</button></td></tr>`).join('')}</table>`:'<div class="card empty">أنشئي أول اختبار تشخيصي.</div>'}
+function renderTests(){testsList.innerHTML=db.tests.length?`<table><tr><th>الاختبار</th><th>عدد الأسئلة</th><th>الحالة</th><th>إجراء</th></tr>${db.tests.map(t=>`<tr><td>${t.title}</td><td>${(t.items||[]).length}</td><td>${t.state}</td><td><button class="secondary" onclick="editTest(${t.id})">✏️ تحرير</button> <button class="primary" onclick="publishTest(${t.id})">✅ اعتماد</button> <button class="secondary" onclick="previewApprovedTest(${t.id})">👁️ معاينة الأسئلة</button> <button class="secondary" onclick="exportStudentQuestions(${t.id})">⬇️ ملف أسئلة الطالبات</button> <button class="secondary" onclick="previewInStudentPortal(${t.id})">🎓 عرض في بوابة الطالبة</button> <button class="secondary" onclick="window.publishQuestionsToFirebase && window.publishQuestionsToFirebase(${t.id})">☁️ تجهيز النشر في Firebase</button> <button class="secondary" onclick="duplicateTest(${t.id})">📄 نسخ</button> <button class="secondary" onclick="deleteTest(${t.id})" style="color:#b42318">🗑️ حذف</button></td></tr>`).join('')}</table>`:'<div class="card empty">أنشئي أول اختبار تشخيصي.</div>'}
 function editTest(id){
  let t=db.tests.find(x=>x.id===id);if(!t)return;
  testEditor.innerHTML=`<div class="card" style="margin-top:16px"><h3>تحرير: ${t.title}</h3>
@@ -235,6 +235,32 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const firestoreDB = getFirestore(app);
+window.publishQuestionsToFirebase = async function(testId){
+ const test = db.tests.find(t => String(t.id) === String(testId));
+ if(!test || test.state !== 'معتمد' || !test.items?.length){
+   alert('اعتمدي الاختبار وأضيفي أسئلته أولًا');return;
+ }
+ if(!auth.currentUser || !cloudReady){
+   alert('يرجى التأكد من تسجيل دخول المعلمة واتصال Firebase');return;
+ }
+ const confirmed=confirm('سيتم حفظ نسخة أسئلة فقط دون الإجابات الصحيحة في publishedTests. لن تُتاح للطالبات حتى نشر قواعد الحماية واختبار رموز الدخول. هل تتابعين؟');
+ if(!confirmed)return;
+ const items=test.items.map(q=>({
+   type:q.type==='tf'?'tf':'mcq',
+   text:String(q.text||''),
+   skill:String(q.skill||''),
+   options:Array.isArray(q.options)?q.options.map(String):[]
+ }));
+ try{
+   await setDoc(doc(firestoreDB,'publishedTests',String(test.id)),{
+     id:String(test.id),title:String(test.title),state:'معتمد',items
+   });
+   alert('تم حفظ نسخة الأسئلة دون مفاتيح الإجابة في Firebase. الدخول الحقيقي ما زال غير مفعّل.');
+ }catch(error){
+   console.error('Question publishing failed',error);
+   alert('لم يُنشر الاختبار. قواعد Firebase الحالية قد تمنع الكتابة، وهذا متوقع حتى إتمام اختبار الحماية. لم تتغير بيانات الطالبات.');
+ }
+};
 let cloudReady = false;
 let syncing = false;
 
