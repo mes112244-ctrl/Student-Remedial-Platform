@@ -1,74 +1,59 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>دخول الطالبة | منصة الخطط العلاجية</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>بوابة الطالبة | منصة متابعة التحصيل والخطط العلاجية</title>
 <style>
-* { box-sizing: border-box; }
-body {
-  margin: 0;
-  font-family: Tahoma, Arial, sans-serif;
-  background: #f0f6f4;
-  color: #24453f;
-}
-main {
-  max-width: 440px;
-  margin: 70px auto;
-  padding: 28px;
-  background: white;
-  border-radius: 18px;
-  box-shadow: 0 5px 24px #173b301a;
-  text-align: center;
-}
-h1 { font-size: 24px; }
-p { line-height: 1.8; }
-input, button {
-  width: 100%;
-  padding: 14px;
-  margin-top: 12px;
-  font: inherit;
-  border-radius: 10px;
-}
-input { border: 1px solid #b9cbc5; }
-button {
-  background: #315c57;
-  color: white;
-  border: 0;
-  cursor: pointer;
-}
-.notice { font-size: 13px; color: #687a75; }
+:root{--green:#315c57;--light:#eef5f2;--ink:#233a35}
+*{box-sizing:border-box}body{margin:0;background:var(--light);font-family:Tahoma,Arial,sans-serif;color:var(--ink);padding:24px}
+main{max-width:640px;margin:28px auto;background:#fff;border-radius:20px;padding:28px;box-shadow:0 6px 26px #173b3017}
+h1{text-align:center;font-size:25px}h2{text-align:center;font-size:17px;font-weight:normal}
+p{line-height:1.9}label{display:block;margin:14px 0 7px}input,button{font:inherit;padding:13px;border-radius:10px}input{width:100%;border:1px solid #b9cbc5}button{border:0;background:var(--green);color:white;cursor:pointer;margin-top:14px}button:focus-visible,input:focus-visible{outline:3px solid #84c4af}
+button:disabled{opacity:.55;cursor:not-allowed}.wide{width:100%}.secondary{background:#e1ece7;color:var(--ink)}.notice{background:#fff6e6;padding:13px;border-radius:10px;font-size:14px}
+.question{border:1px solid #d5e5dd;padding:16px;margin:16px 0;border-radius:12px}.option{display:flex;align-items:center;gap:8px;margin:9px 0;padding:9px;border-radius:8px;background:#f6faf8}.option input{width:auto;margin:0}
+#quiz,#done{display:none}.muted{color:#687a75;font-size:14px}
 </style>
 </head>
 <body>
 <main>
-  <h1>🎓 بوابة الطالبة</h1>
-  <h2>منصة متابعة التحصيل والخطط العلاجية</h2>
-  <p>مرحبًا بكِ في رحلتك نحو الإتقان والتميز</p>
-
-  <input
-    type="text"
-    placeholder="أدخلي رمز الدخول الخاص بكِ"
-    aria-label="رمز دخول الطالبة"
-    autocomplete="off"
-  >
-
-  <button type="button" onclick="showNotice()">
-    دخول الاختبار
-  </button>
-
-  <p id="message" role="status"></p>
-  <p class="notice">
-    بوابة الطالبات قيد الإعداد، وسيتم تفعيل الاختبارات بعد استكمال الحماية.
-  </p>
+<h1>🎓 بوابة الطالبة</h1><h2>منصة متابعة التحصيل والخطط العلاجية</h2>
+<section id="entry">
+<p>مرحبًا بكِ في رحلتك نحو الإتقان والتميز.</p>
+<label for="code">رمز دخول الطالبة</label>
+<input id="code" autocomplete="off" placeholder="أدخلي الرمز الذي تمنحكِ إياه المعلمة">
+<button class="wide" id="enter" type="button">دخول الاختبار</button>
+<p id="message" role="status" class="muted"></p>
+<p class="notice">🔒 الدخول الحقيقي وحفظ النتائج غير مفعّلين بعد؛ يجري إعداد التحقق الآمن من الرموز في Firebase.</p>
+<button class="secondary wide" id="preview" type="button">تجربة شكل الاختبار (بدون حفظ)</button>
+</section>
+<section id="quiz">
+<h3>تجربة واجهة الاختبار</h3><p class="muted">أسئلة توضيحية فقط، لا ترتبط بطالبة ولا تُرسل إلى قاعدة البيانات.</p>
+<form id="quizForm">
+<div class="question"><b>1. ما وحدة قياس الشغل في النظام الدولي؟</b>
+<label class="option"><input type="radio" name="q1" value="0" required> النيوتن</label>
+<label class="option"><input type="radio" name="q1" value="1"> الجول</label>
+<label class="option"><input type="radio" name="q1" value="2"> الواط</label>
+</div>
+<div class="question"><b>2. هل يمكن أن يكون الشغل صفرًا عندما تكون القوة عمودية على الإزاحة؟</b>
+<label class="option"><input type="radio" name="q2" value="1" required> صح</label>
+<label class="option"><input type="radio" name="q2" value="0"> خطأ</label>
+</div>
+<button class="wide" type="submit">إنهاء التجربة</button>
+</form>
+</section>
+<section id="done"><h3>✅ انتهت التجربة</h3><p id="feedback" role="status"></p><button class="secondary wide" id="back" type="button">العودة</button></section>
 </main>
-
 <script>
-function showNotice() {
-  document.getElementById("message").textContent =
-    "هذه صفحة تجريبية. سيتم تفعيل الدخول بعد إعداد الحماية والاختبارات.";
-}
+const $=id=>document.getElementById(id);
+$("enter").addEventListener("click",()=>{
+$("message").textContent=$("code").value.trim()?"لم تُفعّل رموز الدخول بعد. لا يمكن تقديم اختبار رسمي حاليًا.":"يرجى إدخال رمز الدخول الذي تمنحكِ إياه المعلمة.";
+});
+$("preview").addEventListener("click",()=>{$("entry").style.display="none";$("quiz").style.display="block";});
+$("quizForm").addEventListener("submit",e=>{
+e.preventDefault();const answers=new FormData(e.currentTarget);const score=Number(answers.get("q1")==="1")+Number(answers.get("q2")==="1");
+$("quiz").style.display="none";$("done").style.display="block";
+$("feedback").textContent="نتيجتكِ في التجربة: "+score+" من 2. هذه نتيجة توضيحية لم تُحفظ في Firebase.";
+});
+$("back").addEventListener("click",()=>{$("done").style.display="none";$("entry").style.display="block";$("quizForm").reset();});
 </script>
-</body>
-</html>
+</body></html>
