@@ -181,7 +181,7 @@ function previewInStudentPortal(id){
  const t=db.tests.find(x=>x.id===id);
  if(!t||t.state!=='معتمد'||!t.items?.length)return alert('اعتمدي الاختبار أولًا');
  const questions=t.items.map(q=>({type:q.type,text:String(q.text||''),skill:String(q.skill||''),options:Array.isArray(q.options)?q.options.map(String):[]}));
- sessionStorage.setItem('studentPortalPreview',JSON.stringify({title:String(t.title),questions}));
+ localStorage.setItem('studentPortalPreview',JSON.stringify({title:String(t.title),questions,expires:Date.now()+120000}));
  window.open('student.html?preview=1','_blank','noopener');
 }
 function deleteQuestion(id,index){let t=db.tests.find(x=>x.id===id);if(!t)return;if(confirm('حذف هذا السؤال؟')){t.items.splice(index,1);persist();editTest(id)}}
