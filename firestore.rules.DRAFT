@@ -24,37 +24,40 @@ service cloud.firestore {
 
     // Only teacher creates sanitized copies WITHOUT correct answers.
     match /publishedTests/{testId} {
-      allow get: if teacher() || (
-        anonymousStudent()
-        && exists(/databases/$(database)/documents/examSessions/$(request.auth.uid))
-        && get(/databases/$(database)/documents/examSessions/$(request.auth.uid)).data.testId == testId
-      );
+      // Question-only documents; anyone with the test ID and anonymous session
+      // can see the questions. The test ID is NOT an answer key or private record.
+      allow get: if teacher() || anonymousStudent();
       allow list: if teacher();
       allow create, update: if teacher()
         && request.resource.data.keys().hasOnly(['id','title','items','state'])
         && request.resource.data.items is list
         && request.resource.data.items.size() > 0
         && request.resource.data.items.size() <= 100;
+      // NOTE: rules cannot reliably verify every nested question lacks a
+      // 'correct' field. Teacher publishing code MUST use an explicit allowlist.
       allow delete: if teacher();
     }
 
-    // Teacher provisions a one-time anonymous session tied to a test.
-    // Anonymous clients cannot create or change these records.
-    match /examSessions/{uid} {
-      allow get: if teacher() || (anonymousStudent() && request.auth.uid == uid);
-      allow list, create, update, delete: if teacher();
+    // A code is a high-entropy bearer secret (at least 128 random bits).
+    // Student can fetch ONLY the document whose code they already know.
+    // Never include student names, answers, scores or personal IDs in this document.
+    match /examAccess/{code} {
+      allow get: if teacher() || anonymousStudent();
+      allow list: if teacher();
+      allow create, update, delete: if teacher();
     }
 
-    // One submission per session; clients cannot provide a score.
-    match /examSubmissions/{uid} {
+    // Students may create ONE submission for a valid code, never write scores.
+    // A guessed/stolen code can be used once; sharing codes remains a risk.
+    match /examSubmissions/{code} {
       allow get, list: if teacher();
       allow create: if anonymousStudent()
-        && request.auth.uid == uid
-        && exists(/databases/$(database)/documents/examSessions/$(uid))
+        && exists(/databases/$(database)/documents/examAccess/$(code))
         && request.resource.data.keys().hasOnly(['testId','answers','submittedAt'])
         && request.resource.data.testId ==
-          get(/databases/$(database)/documents/examSessions/$(uid)).data.testId
+          get(/databases/$(database)/documents/examAccess/$(code)).data.testId
         && request.resource.data.answers is list
+        && request.resource.data.answers.size() > 0
         && request.resource.data.answers.size() <= 100
         && request.resource.data.submittedAt == request.time;
       allow update, delete: if teacher();
