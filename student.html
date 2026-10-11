@@ -45,6 +45,38 @@ button:disabled{opacity:.55;cursor:not-allowed}.wide{width:100%}.secondary{backg
 </main>
 <script>
 const $=id=>document.getElementById(id);
+if(new URLSearchParams(location.search).get('preview')==='1'){
+ try{
+  const raw=localStorage.getItem('studentPortalPreview');
+  localStorage.removeItem('studentPortalPreview');
+  const data=JSON.parse(raw||'null');
+  if(data&&data.expires>Date.now()&&Array.isArray(data.questions)&&data.questions.length){
+   $("entry").style.display="none";
+   $("quiz").style.display="block";
+   const section=$("quiz");
+   section.querySelector('h3').textContent="معاينة اختبار: "+String(data.title||'');
+   section.querySelector('p').textContent="معاينة فقط — لا تحفظ الإجابات ولا تظهر نتيجة رسمية.";
+   const form=$("quizForm");form.replaceChildren();
+   data.questions.forEach((q,i)=>{
+    const field=document.createElement('div');field.className='question';
+    const heading=document.createElement('b');heading.textContent=(i+1)+'. '+String(q.text||'');
+    field.appendChild(heading);
+    (Array.isArray(q.options)?q.options:[]).forEach((o,j)=>{
+     const label=document.createElement('label');label.className='option';
+     const input=document.createElement('input');input.type='radio';input.name='question'+i;input.value=String(j);input.required=true;
+     label.append(input,document.createTextNode(' '+String(o)));field.appendChild(label);
+    });
+    form.appendChild(field);
+   });
+   const submit=document.createElement('button');submit.type='submit';submit.className='wide';submit.textContent='إنهاء المعاينة';
+   form.appendChild(submit);
+   form.addEventListener('submit',e=>{
+    e.preventDefault();$("quiz").style.display="none";$("done").style.display="block";
+    $("feedback").textContent="اكتملت معاينة الاختبار. لم يتم تصحيح الإجابات أو حفظها في Firebase.";
+   },{once:true,capture:true});
+  }
+ }catch(error){console.warn('Preview unavailable',error)}
+}
 $("enter").addEventListener("click",()=>{
 $("message").textContent=$("code").value.trim()?"لم تُفعّل رموز الدخول بعد. لا يمكن تقديم اختبار رسمي حاليًا.":"يرجى إدخال رمز الدخول الذي تمنحكِ إياه المعلمة.";
 });
