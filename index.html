@@ -79,7 +79,7 @@ function saveStudent(){let name=sname.value.trim();if(!name)return alert('أدخ
 async function deleteStudent(id){let s=db.students.find(x=>String(x.id)===String(id));if(!s||!confirm(`هل تريدين حذف الطالبة: ${s.name}؟\nسيتم حذف خططها ونتيجتها أيضًا.`))return;db.students=db.students.filter(x=>String(x.id)!==String(id));let planIds=db.plans.filter(p=>String(p.studentId)===String(id)).map(p=>p.id);db.plans=db.plans.filter(p=>String(p.studentId)!==String(id));persist();if(window.deleteStudentFromFirestore)await window.deleteStudentFromFirestore(id,planIds)}
 function importCSV(inp){let f=inp.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{r.result.split(/\r?\n/).filter(Boolean).forEach((line,i)=>{let c=line.split(',');if(i===0&&/اسم|name/i.test(c[0]))return;db.students.push({id:(c[3]||Date.now()+i)+'',name:(c[0]||'').trim(),stage:(c[1]||'ثاني ثانوي').trim(),className:(c[2]||'').trim(),specialty:(c[4]||'المسار العام').trim(),score:null,skills:[]})});persist()};r.readAsText(f,'UTF-8')}
 function createTest(){let title=prompt('اسم الاختبار التشخيصي');if(!title)return;db.tests.push({id:Date.now(),title,state:'مسودة',items:[]});persist();editTest(db.tests[db.tests.length-1].id)}
-function renderTests(){testsList.innerHTML=db.tests.length?`<table><tr><th>الاختبار</th><th>عدد الأسئلة</th><th>الحالة</th><th>إجراء</th></tr>${db.tests.map(t=>`<tr><td>${t.title}</td><td>${(t.items||[]).length}</td><td>${t.state}</td><td><button class="secondary" onclick="editTest(${t.id})">✏️ تحرير</button> <button class="primary" onclick="publishTest(${t.id})">✅ اعتماد</button> <button class="secondary" onclick="duplicateTest(${t.id})">📄 نسخ</button> <button class="secondary" onclick="deleteTest(${t.id})" style="color:#b42318">🗑️ حذف</button></td></tr>`).join('')}</table>`:'<div class="card empty">أنشئي أول اختبار تشخيصي.</div>'}
+function renderTests(){testsList.innerHTML=db.tests.length?`<table><tr><th>الاختبار</th><th>عدد الأسئلة</th><th>الحالة</th><th>إجراء</th></tr>${db.tests.map(t=>`<tr><td>${t.title}</td><td>${(t.items||[]).length}</td><td>${t.state}</td><td><button class="secondary" onclick="editTest(${t.id})">✏️ تحرير</button> <button class="primary" onclick="publishTest(${t.id})">✅ اعتماد</button> <button class="secondary" onclick="previewApprovedTest(${t.id})">👁️ معاينة الأسئلة</button> <button class="secondary" onclick="duplicateTest(${t.id})">📄 نسخ</button> <button class="secondary" onclick="deleteTest(${t.id})" style="color:#b42318">🗑️ حذف</button></td></tr>`).join('')}</table>`:'<div class="card empty">أنشئي أول اختبار تشخيصي.</div>'}
 function editTest(id){
  let t=db.tests.find(x=>x.id===id);if(!t)return;
  testEditor.innerHTML=`<div class="card" style="margin-top:16px"><h3>تحرير: ${t.title}</h3>
@@ -113,7 +113,58 @@ function addQuestion(id){
  t.items.push({type,text:qtext.value.trim(),skill:qskill.value.trim(),options:opts,correct:Number(qcorrect.value)});
  persist();editTest(id);
 }
-function publishTest(id){let t=db.tests.find(x=>x.id===id);if(!t.items?.length)return alert('أضيفي سؤالًا واحدًا على الأقل');t.state='معتمد';persist();alert('تم اعتماد الاختبار وأصبح جاهزًا للطالبة')}
+function publishTest(id){let t=db.tests.find(x=>x.id===id);if(!t.items?.length)return alert('أضيفي سؤالًا واحدًا على الأقل');t.state='معتمد';persist();alert('تم اعتماد الاختبار داخل لوحة المعلمة. لم يُنشر بعد على بوابة الطالبات؛ الربط الآمن قيد الإعداد.')}
+function previewApprovedTest(id){
+ const t=db.tests.find(x=>x.id===id);
+ if(!t)return alert('لم يتم العثور على الاختبار');
+ if(t.state!=='معتمد')return alert('اعتمدي الاختبار أولًا قبل معاينته');
+ const questions=(t.items||[]).map((q,i)=>({
+   number:i+1, text:String(q.text||''),skill:String(q.skill||''),
+   options:Array.isArray(q.options)?q.options.map(String):[]
+ }));
+ if(!questions.length)return alert('لا توجد أسئلة للمعاينة');
+ const esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const overlay=document.createElement('div');
+ overlay.className='modal show';
+ overlay.style.zIndex='9999999';
+ const panel=document.createElement('div');
+ panel.className='box';
+ panel.style.cssText='max-height:88vh;overflow:auto;text-align:right';
+ const heading=document.createElement('h3');
+ heading.textContent='معاينة أسئلة: '+t.title;
+ panel.appendChild(heading);
+ const info=document.createElement('p');
+ info.className='muted';
+ info.textContent='معاينة للمعلمة فقط — لا تظهر الإجابات الصحيحة ولا تُحفظ أي نتائج.';
+ panel.appendChild(info);
+ questions.forEach(q=>{
+   const div=document.createElement('div');
+   div.className='card';
+   div.style.marginBottom='12px';
+   const title=document.createElement('strong');
+   title.textContent=q.number+'. '+q.text;
+   div.appendChild(title);
+   const skill=document.createElement('p');
+   skill.className='muted';
+   skill.textContent='المهارة: '+q.skill;
+   div.appendChild(skill);
+   q.options.forEach((option,i)=>{
+     const line=document.createElement('p');
+     line.textContent='أبجد'[i]+'. '+option;
+     div.appendChild(line);
+   });
+   panel.appendChild(div);
+ });
+ const close=document.createElement('button');
+ close.className='primary';
+ close.type='button';
+ close.textContent='إغلاق المعاينة';
+ close.onclick=()=>overlay.remove();
+ panel.appendChild(close);
+ overlay.appendChild(panel);
+ overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove()});
+ document.body.appendChild(overlay);
+}
 function deleteQuestion(id,index){let t=db.tests.find(x=>x.id===id);if(!t)return;if(confirm('حذف هذا السؤال؟')){t.items.splice(index,1);persist();editTest(id)}}
 function duplicateTest(id){let t=db.tests.find(x=>x.id===id);if(!t)return;let copy=JSON.parse(JSON.stringify(t));copy.id=Date.now();copy.title=t.title+' - نسخة';copy.state='مسودة';db.tests.push(copy);persist()}
 function deleteTest(id){let t=db.tests.find(x=>x.id===id);if(!t||!confirm(`حذف الاختبار: ${t.title}؟`))return;db.tests=db.tests.filter(x=>x.id!==id);testEditor.innerHTML='';persist()}
