@@ -24,7 +24,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.wide{width:100%}.secondary{backg
 <button class="wide" id="enter" type="button">دخول الاختبار</button>
 <p id="message" role="status" class="muted"></p>
 <p class="notice">🔒 الدخول الحقيقي وحفظ النتائج غير مفعّلين بعد؛ يجري إعداد التحقق الآمن من الرموز في Firebase.</p>
-<button class="secondary wide" id="preview" type="button">تجربة شكل الاختبار (بدون حفظ)</button>
+<label for="quizFile">📂 فتح ملف أسئلة الاختبار الذي ترسله المعلمة (JSON)</label><input id="quizFile" type="file" accept=".json,application/json"><p class="muted">بعد الحل يمكنكِ تنزيل ملف الإجابات وإرساله للمعلمة للتصحيح. لا يتطلب هذا الوضع رمز دخول أو اتصالًا بقاعدة البيانات.</p><button class="secondary wide" id="preview" type="button">تجربة شكل الاختبار (بدون حفظ)</button>
 </section>
 <section id="quiz">
 <h3>تجربة واجهة الاختبار</h3><p class="muted">أسئلة توضيحية فقط، لا ترتبط بطالبة ولا تُرسل إلى قاعدة البيانات.</p>
@@ -45,6 +45,41 @@ button:disabled{opacity:.55;cursor:not-allowed}.wide{width:100%}.secondary{backg
 </main>
 <script>
 const $=id=>document.getElementById(id);
+let offlineQuiz=null;
+$("quizFile").addEventListener("change",async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+  if(file.size>500000)throw Error("الملف كبير جدًا");
+  const data=JSON.parse(await file.text());
+  if(!data||!Array.isArray(data.questions)||!data.questions.length||data.questions.length>100)throw Error("ملف الأسئلة غير صالح");
+  const questions=data.questions.map(q=>({text:String(q.text||""),skill:String(q.skill||""),options:Array.isArray(q.options)?q.options.map(String):[]}));
+  if(questions.some(q=>!q.text||q.options.length<2||q.options.length>8))throw Error("بعض الأسئلة غير مكتملة");
+  offlineQuiz={title:String(data.title||"اختبار"),questions,studentName:""};
+  const name=prompt("أدخلي اسم الطالبة كما هو في سجل المعلمة");
+  if(!name?.trim()){offlineQuiz=null;return}
+  offlineQuiz.studentName=name.trim();
+  $("entry").style.display="none";$("quiz").style.display="block";
+  $("quiz").querySelector("h3").textContent=offlineQuiz.title;
+  $("quiz").querySelector("p").textContent="بعد إنهاء الاختبار سيُنزّل ملف إجابات لإرساله للمعلمة. لا يتم حفظ البيانات في Firebase.";
+  const form=$("quizForm");form.replaceChildren();
+  questions.forEach((q,i)=>{
+   const box=document.createElement("div");box.className="question";
+   const title=document.createElement("b");title.textContent=(i+1)+". "+q.text;box.appendChild(title);
+   q.options.forEach((o,j)=>{const label=document.createElement("label");label.className="option";const input=document.createElement("input");input.type="radio";input.name="question"+i;input.value=String(j);input.required=true;label.append(input,document.createTextNode(" "+o));box.appendChild(label)});
+   form.appendChild(box);
+  });
+  const submit=document.createElement("button");submit.className="wide";submit.type="submit";submit.textContent="تسليم الإجابات";form.appendChild(submit);
+  form.addEventListener("submit",event=>{
+   event.preventDefault();event.stopImmediatePropagation();
+   const answers=questions.map((q,i)=>Number(new FormData(form).get("question"+i)));
+   const payload={format:"remedial-answer-v1",title:offlineQuiz.title,studentName:offlineQuiz.studentName,questions:questions.map(q=>({text:q.text,skill:q.skill})),answers,submittedAt:new Date().toISOString()};
+   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="answers-"+Date.now()+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
+   $("quiz").style.display="none";$("done").style.display="block";$("feedback").textContent="تم تنزيل ملف الإجابات. أرسليه إلى المعلمة ليتم تصحيحه وحفظ النتيجة. لم يتم إرسال أي بيانات تلقائيًا.";
+  },{capture:true,once:true});
+ }catch(error){$("message").textContent=error.message||"تعذر فتح الملف"}
+});
+
 if(new URLSearchParams(location.search).get('preview')==='1'){
  try{
   const raw=localStorage.getItem('studentPortalPreview');
