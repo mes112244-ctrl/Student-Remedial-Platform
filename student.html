@@ -50,11 +50,6 @@ async function openSharedQuiz(data){
  try{
   if(!data||!Array.isArray(data.questions)||!data.questions.length||data.questions.length>100)throw Error("ملف الأسئلة غير صالح");
 
- const file=e.target.files?.[0];if(!file)return;
- try{
-  if(file.size>500000)throw Error("الملف كبير جدًا");
-  const data=JSON.parse(await file.text());
-
   const questions=data.questions.map(q=>({text:String(q.text||""),skill:String(q.skill||""),options:Array.isArray(q.options)?q.options.map(String):[]}));
   if(questions.some(q=>!q.text||q.options.length<2||q.options.length>8))throw Error("بعض الأسئلة غير مكتملة");
   offlineQuiz={title:String(data.title||"اختبار"),questions,studentName:""};
