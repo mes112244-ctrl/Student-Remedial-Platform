@@ -201,7 +201,7 @@ async function shareStudentTestLink(id){
  if(!t||t.state!=='معتمد'||!t.items?.length)return alert('اعتمدي الاختبار وأضيفي أسئلته أولًا');
  const questions=t.items.map(q=>({type:q.type,text:String(q.text||''),skill:String(q.skill||''),options:Array.isArray(q.options)?q.options.map(String):[]}));
  const payload=JSON.stringify({title:String(t.title),questions});
- const encoded=btoa(unescape(encodeURIComponent(payload))).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+ const encoded=btoa(unescape(encodeURIComponent(payload))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
  const link=new URL('student.html',location.href);link.hash='quiz='+encoded;
  if(link.href.length>7000)return alert('الاختبار كبير على رابط مباشر. استخدمي ملف أسئلة الطالبات حاليًا.');
  try{await navigator.clipboard.writeText(link.href);alert('تم نسخ رابط الاختبار. أرسليه للطالبة. لا يتطلب تحميل ملف الأسئلة، لكن النتائج لا تُرسل تلقائيًا، ولا يوجد تحقق آمن من الهوية أو رمز سري.');}
