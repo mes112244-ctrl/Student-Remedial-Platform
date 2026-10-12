@@ -81,6 +81,7 @@ function importCSV(inp){let f=inp.files[0];if(!f)return;let r=new FileReader();r
 function createTest(){let title=prompt('اسم الاختبار التشخيصي');if(!title)return;db.tests.push({id:Date.now(),title,state:'مسودة',items:[]});persist();editTest(db.tests[db.tests.length-1].id)}
 function renderTests(){testsList.innerHTML=db.tests.length?`<table><tr><th>الاختبار</th><th>عدد الأسئلة</th><th>الحالة</th><th>إجراء</th></tr>${db.tests.map(t=>`<tr><td>${t.title}</td><td>${(t.items||[]).length}</td><td>${t.state}</td><td><button class="secondary" onclick="editTest(${t.id})">✏️ تحرير</button> <button class="primary" onclick="publishTest(${t.id})">✅ اعتماد</button> <button class="secondary" onclick="previewApprovedTest(${t.id})">👁️ معاينة الأسئلة</button> <button class="secondary" onclick="exportStudentQuestions(${t.id})">⬇️ ملف أسئلة الطالبات</button> <button class="secondary" onclick="previewInStudentPortal(${t.id})">🎓 عرض في بوابة الطالبة</button> <button class="secondary" onclick="window.publishQuestionsToFirebase && window.publishQuestionsToFirebase(${t.id})">☁️ تجهيز النشر في Firebase</button> <button class="secondary" onclick="duplicateTest(${t.id})">📄 نسخ</button> <button class="secondary" onclick="deleteTest(${t.id})" style="color:#b42318">🗑️ حذف</button></td></tr>`).join('')}</table>`:'<div class="card empty">أنشئي أول اختبار تشخيصي.</div>'}
 function editTest(id){
+ editingQuestionIndex=null;
  let t=db.tests.find(x=>x.id===id);if(!t)return;
  testEditor.innerHTML=`<div class="card" style="margin-top:16px"><h3>تحرير: ${t.title}</h3>
  <div class="grid2">
@@ -90,8 +91,8 @@ function editTest(id){
  <input id="qa" placeholder="الخيار أ"><input id="qb" placeholder="الخيار ب">
  <input id="qc" placeholder="الخيار ج"><input id="qd" placeholder="الخيار د">
  <select id="qcorrect"><option value="0">الإجابة الصحيحة: أ</option><option value="1">الإجابة الصحيحة: ب</option><option value="2">الإجابة الصحيحة: ج</option><option value="3">الإجابة الصحيحة: د</option></select>
- </div><div class="toolbar"><button class="primary" onclick="addQuestion(${id})">إضافة السؤال</button></div>
- <div>${(t.items||[]).map((q,i)=>`<div style="padding:9px 0;border-bottom:1px solid var(--line)"><b>${i+1}. ${q.text}</b> <span class="badge">${q.type==='tf'?'صح/خطأ':'اختيار من متعدد'}</span> — <span class="muted">${q.skill}</span> <button class="secondary" onclick="deleteQuestion(${id},${i})">🗑️ حذف السؤال</button></div>`).join('')||'<p class="muted">لم تتم إضافة أسئلة بعد.</p>'}</div></div>`;
+ </div><div class="toolbar"><button class="primary" id="questionSaveButton" onclick="addQuestion(${id})">إضافة السؤال</button><button class="secondary" id="cancelQuestionEdit" style="display:none" onclick="editTest(${id})">إلغاء التعديل</button></div>
+ <div>${(t.items||[]).map((q,i)=>`<div style="padding:9px 0;border-bottom:1px solid var(--line)"><b>${i+1}. ${q.text}</b> <span class="badge">${q.type==='tf'?'صح/خطأ':'اختيار من متعدد'}</span> — <span class="muted">${q.skill}</span> <button class="secondary" onclick="startEditQuestion(${id},${i})">✏️ تعديل السؤال</button> <button class="secondary" onclick="deleteQuestion(${id},${i})">🗑️ حذف السؤال</button></div>`).join('')||'<p class="muted">لم تتم إضافة أسئلة بعد.</p>'}</div></div>`;
  updateQuestionType();
 }
 function updateQuestionType(){
@@ -106,12 +107,30 @@ function updateQuestionType(){
    correct.innerHTML='<option value="0">الإجابة الصحيحة: أ</option><option value="1">الإجابة الصحيحة: ب</option><option value="2">الإجابة الصحيحة: ج</option><option value="3">الإجابة الصحيحة: د</option>';
  }
 }
+let editingQuestionIndex=null;
+function startEditQuestion(id,index){
+ editTest(id);
+ const t=db.tests.find(x=>x.id===id),q=t?.items?.[index];if(!q)return;
+ editingQuestionIndex=index;
+ const isTrueFalse=q.type==='tf'||(q.options||[]).every(o=>/^(صح|خطأ|الخيار\s*:\s*صح|الخيار\s*:\s*خطأ)$/.test(String(o).trim()));
+ qtype.value=isTrueFalse?'tf':'mcq';updateQuestionType();
+ qskill.value=q.skill||'';qtext.value=q.text||'';
+ if(!isTrueFalse){[qa,qb,qc,qd].forEach((el,i)=>el.value=q.options?.[i]||'');}
+ qcorrect.value=String(isTrueFalse?(/خطأ/.test(String(q.options?.[q.correct]||''))?1:0):q.correct);
+ document.getElementById('questionSaveButton').textContent='💾 حفظ تعديل السؤال';
+ document.getElementById('cancelQuestionEdit').style.display='';
+ document.getElementById('questionSaveButton').scrollIntoView({behavior:'smooth',block:'center'});
+}
 function addQuestion(id){
  let t=db.tests.find(x=>x.id===id),type=qtype.value;
  let opts=type==='tf'?['صح','خطأ']:[qa.value,qb.value,qc.value,qd.value];
  if(!qtext.value.trim()||!qskill.value.trim()||opts.some(x=>!x.trim()))return alert(type==='tf'?'أكملي نص السؤال والمهارة':'أكملي السؤال والمهارة والخيارات الأربعة');
- t.items.push({type,text:qtext.value.trim(),skill:qskill.value.trim(),options:opts,correct:Number(qcorrect.value)});
- persist();editTest(id);
+ const updated={type,text:qtext.value.trim(),skill:qskill.value.trim(),options:opts,correct:Number(qcorrect.value)};
+ if(editingQuestionIndex!==null){
+   if(!confirm('حفظ تعديل السؤال؟ لن تتغير نتائج الطالبات السابقة تلقائيًا. يلزم إعادة تصحيح الملفات السابقة إذا رغبتِ بتحديث الدرجات.'))return;
+   t.items[editingQuestionIndex]=updated;
+ }else t.items.push(updated);
+ editingQuestionIndex=null;persist();editTest(id);
 }
 function publishTest(id){let t=db.tests.find(x=>x.id===id);if(!t.items?.length)return alert('أضيفي سؤالًا واحدًا على الأقل');t.state='معتمد';persist();alert('تم اعتماد الاختبار داخل لوحة المعلمة. لم يُنشر بعد على بوابة الطالبات؛ الربط الآمن قيد الإعداد.')}
 function previewApprovedTest(id){
