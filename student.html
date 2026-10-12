@@ -23,7 +23,7 @@ button:disabled{opacity:.55;cursor:not-allowed}.wide{width:100%}.secondary{backg
 <input id="code" autocomplete="off" placeholder="أدخلي الرمز الذي تمنحكِ إياه المعلمة">
 <button class="wide" id="enter" type="button">دخول الاختبار</button>
 <p id="message" role="status" class="muted"></p>
-<p class="notice">🔒 الدخول الحقيقي وحفظ النتائج غير مفعّلين بعد؛ يجري إعداد التحقق الآمن من الرموز في Firebase.</p>
+<p class="notice">🔗 يمكن فتح الاختبار مباشرة عبر الرابط الذي ترسله المعلمة، دون تنزيل ملف الأسئلة. النتائج تُنزّل كملف إجابات لإرساله للمعلمة، ولا تُحفظ تلقائيًا. رموز الدخول الآمنة لم تُفعّل بعد.</p>
 <label for="quizFile">📂 فتح ملف أسئلة الاختبار الذي ترسله المعلمة (JSON)</label><input id="quizFile" type="file" accept=".json,application/json"><p class="muted">بعد الحل يمكنكِ تنزيل ملف الإجابات وإرساله للمعلمة للتصحيح. لا يتطلب هذا الوضع رمز دخول أو اتصالًا بقاعدة البيانات.</p><button class="secondary wide" id="preview" type="button">تجربة شكل الاختبار (بدون حفظ)</button>
 </section>
 <section id="quiz">
@@ -46,12 +46,15 @@ button:disabled{opacity:.55;cursor:not-allowed}.wide{width:100%}.secondary{backg
 <script>
 const $=id=>document.getElementById(id);
 let offlineQuiz=null;
-$("quizFile").addEventListener("change",async e=>{
+async function openSharedQuiz(data){
+ try{
+  if(!data||!Array.isArray(data.questions)||!data.questions.length||data.questions.length>100)throw Error("ملف الأسئلة غير صالح");
+
  const file=e.target.files?.[0];if(!file)return;
  try{
   if(file.size>500000)throw Error("الملف كبير جدًا");
   const data=JSON.parse(await file.text());
-  if(!data||!Array.isArray(data.questions)||!data.questions.length||data.questions.length>100)throw Error("ملف الأسئلة غير صالح");
+
   const questions=data.questions.map(q=>({text:String(q.text||""),skill:String(q.skill||""),options:Array.isArray(q.options)?q.options.map(String):[]}));
   if(questions.some(q=>!q.text||q.options.length<2||q.options.length>8))throw Error("بعض الأسئلة غير مكتملة");
   offlineQuiz={title:String(data.title||"اختبار"),questions,studentName:""};
@@ -77,8 +80,24 @@ $("quizFile").addEventListener("change",async e=>{
    const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="answers-"+Date.now()+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
    $("quiz").style.display="none";$("done").style.display="block";$("feedback").textContent="تم تنزيل ملف الإجابات. أرسليه إلى المعلمة ليتم تصحيحه وحفظ النتيجة. لم يتم إرسال أي بيانات تلقائيًا.";
   },{capture:true,once:true});
- }catch(error){$("message").textContent=error.message||"تعذر فتح الملف"}
+ }catch(error){$("message").textContent=error.message||"تعذر فتح الاختبار"}
+}
+$("quizFile").addEventListener("change",async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ if(file.size>500000){$("message").textContent="الملف كبير جدًا";return;}
+ try{await openSharedQuiz(JSON.parse(await file.text()));}
+ catch(error){$("message").textContent="ملف الأسئلة غير صالح";}
 });
+if(location.hash.startsWith('#quiz=')){
+ try{
+  const encoded=location.hash.slice(6).replace(/-/g,'+').replace(/_/g,'/');
+  if(encoded.length>12000)throw Error('الرابط طويل جدًا');
+  const json=decodeURIComponent(escape(atob(encoded)));
+  history.replaceState(null,'',location.pathname);
+  openSharedQuiz(JSON.parse(json));
+ }catch(error){$("message").textContent="تعذر فتح رابط الاختبار. اطلبي رابطًا جديدًا من المعلمة.";}
+}
+
 
 if(new URLSearchParams(location.search).get('preview')==='1'){
  try{
