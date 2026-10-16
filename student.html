@@ -19,11 +19,9 @@ button:disabled{opacity:.55;cursor:not-allowed}.wide{width:100%}.secondary{backg
 <h1>🎓 بوابة الطالبة</h1><h2>منصة متابعة التحصيل والخطط العلاجية</h2>
 <section id="entry">
 <p>مرحبًا بكِ في رحلتك نحو الإتقان والتميز.</p>
-<label for="code">رمز دخول الطالبة</label>
-<input id="code" autocomplete="off" placeholder="أدخلي الرمز الذي تمنحكِ إياه المعلمة">
-<button class="wide" id="enter" type="button">دخول الاختبار</button>
+<p class="notice">ابدئي من رابط الاختبار الذي أرسلته المعلمة عبر واتساب، دون رمز دخول.</p>
 <p id="message" role="status" class="muted"></p>
-<p class="notice">🔗 يمكن فتح الاختبار مباشرة عبر الرابط الذي ترسله المعلمة، دون تنزيل ملف الأسئلة. النتائج تُنزّل كملف إجابات لإرساله للمعلمة، ولا تُحفظ تلقائيًا. رموز الدخول الآمنة لم تُفعّل بعد.</p>
+<p class="notice">🔗 يمكن فتح الاختبار مباشرة عبر الرابط الذي ترسله المعلمة، دون تنزيل ملف الأسئلة. ستحاول المنصة حفظ إجاباتك تلقائيًا. إذا تعذّر الاتصال ستنزّل ملف إجابات احتياطيًا.</p>
 <label for="quizFile">📂 فتح ملف أسئلة الاختبار الذي ترسله المعلمة (JSON)</label><input id="quizFile" type="file" accept=".json,application/json"><p class="muted">بعد الحل يمكنكِ تنزيل ملف الإجابات وإرساله للمعلمة للتصحيح. لا يتطلب هذا الوضع رمز دخول أو اتصالًا بقاعدة البيانات.</p><button class="secondary wide" id="preview" type="button">تجربة شكل الاختبار (بدون حفظ)</button>
 </section>
 <section id="quiz">
@@ -46,19 +44,20 @@ button:disabled{opacity:.55;cursor:not-allowed}.wide{width:100%}.secondary{backg
 <script>
 const $=id=>document.getElementById(id);
 let offlineQuiz=null;
+let saveRemoteSubmission=async()=>{throw Error("خدمة الحفظ غير متاحة")};
 async function openSharedQuiz(data){
  try{
   if(!data||!Array.isArray(data.questions)||!data.questions.length||data.questions.length>100)throw Error("ملف الأسئلة غير صالح");
 
   const questions=data.questions.map(q=>({text:String(q.text||""),skill:String(q.skill||""),options:Array.isArray(q.options)?q.options.map(String):[]}));
   if(questions.some(q=>!q.text||q.options.length<2||q.options.length>8))throw Error("بعض الأسئلة غير مكتملة");
-  offlineQuiz={title:String(data.title||"اختبار"),questions,studentName:""};
+  offlineQuiz={title:String(data.title||"اختبار"),testId:String(data.testId||""),questions,studentName:""};
   const name=prompt("أدخلي اسم الطالبة كما هو في سجل المعلمة");
   if(!name?.trim()){offlineQuiz=null;return}
   offlineQuiz.studentName=name.trim();
   $("entry").style.display="none";$("quiz").style.display="block";
   $("quiz").querySelector("h3").textContent=offlineQuiz.title;
-  $("quiz").querySelector("p").textContent="بعد إنهاء الاختبار سيُنزّل ملف إجابات لإرساله للمعلمة. لا يتم حفظ البيانات في Firebase.";
+  $("quiz").querySelector("p").textContent="اضغطي تسليم لإرسال الإجابات للمعلمة تلقائيًا. إذا تعذر الحفظ سيُنزّل ملف احتياطي.";
   const form=$("quizForm");form.replaceChildren();
   questions.forEach((q,i)=>{
    const box=document.createElement("div");box.className="question";
@@ -67,13 +66,21 @@ async function openSharedQuiz(data){
    form.appendChild(box);
   });
   const submit=document.createElement("button");submit.className="wide";submit.type="submit";submit.textContent="تسليم الإجابات";form.appendChild(submit);
-  form.addEventListener("submit",event=>{
+  form.addEventListener("submit",async event=>{
    event.preventDefault();event.stopImmediatePropagation();
+   const button=form.querySelector('button[type=submit]');button.disabled=true;button.textContent="جارٍ إرسال الإجابات...";
    const answers=questions.map((q,i)=>Number(new FormData(form).get("question"+i)));
-   const payload={format:"remedial-answer-v1",title:offlineQuiz.title,studentName:offlineQuiz.studentName,questions:questions.map(q=>({text:q.text,skill:q.skill})),answers,submittedAt:new Date().toISOString()};
-   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
-   const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="answers-"+Date.now()+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
-   $("quiz").style.display="none";$("done").style.display="block";$("feedback").textContent="تم تنزيل ملف الإجابات. أرسليه إلى المعلمة ليتم تصحيحه وحفظ النتيجة. لم يتم إرسال أي بيانات تلقائيًا.";
+   const payload={format:"remedial-answer-v1",testId:offlineQuiz.testId,title:offlineQuiz.title,studentName:offlineQuiz.studentName,questions:questions.map(q=>({text:q.text,skill:q.skill})),answers,submittedAt:new Date().toISOString()};
+   try{
+    await saveRemoteSubmission(payload);
+    $("quiz").style.display="none";$("done").style.display="block";
+    $("feedback").textContent="تم استلام الإجابات في قاعدة البيانات بنجاح. يمكنكِ إغلاق الصفحة.";
+   }catch(error){
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="answers-"+Date.now()+".json";a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
+    $("quiz").style.display="none";$("done").style.display="block";
+    $("feedback").textContent="تعذر حفظ الإجابات تلقائيًا. تم تنزيل ملف الإجابات الاحتياطي؛ أرسليه إلى المعلمة عبر واتساب. لا تعتبر الإجابات مستلمة حتى يصل الملف إلى المعلمة.";
+   }
   },{capture:true,once:true});
  }catch(error){$("message").textContent=error.message||"تعذر فتح الاختبار"}
 }
@@ -126,9 +133,7 @@ if(new URLSearchParams(location.search).get('preview')==='1'){
   }
  }catch(error){console.warn('Preview unavailable',error)}
 }
-$("enter").addEventListener("click",()=>{
-$("message").textContent=$("code").value.trim()?"لم تُفعّل رموز الدخول بعد. لا يمكن تقديم اختبار رسمي حاليًا.":"يرجى إدخال رمز الدخول الذي تمنحكِ إياه المعلمة.";
-});
+
 $("preview").addEventListener("click",()=>{$("entry").style.display="none";$("quiz").style.display="block";});
 $("quizForm").addEventListener("submit",e=>{
 e.preventDefault();const answers=new FormData(e.currentTarget);const score=Number(answers.get("q1")==="1")+Number(answers.get("q2")==="1");
@@ -137,4 +142,16 @@ $("feedback").textContent="نتيجتكِ في التجربة: "+score+" من 2.
 });
 $("back").addEventListener("click",()=>{$("done").style.display="none";$("entry").style.display="block";$("quizForm").reset();});
 </script>
-</body></html>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+import {getAuth,signInAnonymously} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-auth.js";
+import {getFirestore,addDoc,collection} from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
+const app=initializeApp({apiKey:"AIzaSyAdLK26u86KAxFT84Uq-xmocOH0VlNgOVs",authDomain:"student-remedial-platform.firebaseapp.com",projectId:"student-remedial-platform",appId:"1:890281372215:web:bf974f7d8f019bdd602db2"});
+const auth=getAuth(app),store=getFirestore(app);
+saveRemoteSubmission=async payload=>{
+ if(!payload.testId)throw Error("الاختبار غير مرتبط بمعرف");
+ if(!auth.currentUser)await signInAnonymously(auth);
+ const safe={...payload,studentName:payload.studentName.slice(0,100),submittedAt:new Date().toISOString(),status:"pending"};
+ await addDoc(collection(store,"studentSubmissions"),safe);
+};
+</script></body></html>
