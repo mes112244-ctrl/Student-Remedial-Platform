@@ -30,7 +30,7 @@ table{width:100%;border-collapse:collapse;background:white;border-radius:12px;ov
 <main>
 <section id="home" class="page active"><h2>لوحة المعلمة</h2><p class="muted">ملخص المتابعة والإجراءات التي تحتاج إلى اهتمام.</p><div class="cards" id="cards"></div><h3>تحتاج إلى إجراء</h3><div id="actions"></div></section>
 <section id="students" class="page"><h2>الطالبات</h2><div class="toolbar"><button class="primary" onclick="openStudent()">+ إضافة طالبة</button><button class="secondary" onclick="document.getElementById('csv').click()">استيراد CSV</button><input id="csv" type="file" accept=".csv" hidden onchange="importCSV(this)"><input id="search" placeholder="بحث باسم الطالبة" oninput="renderStudents()"><select id="filter" onchange="renderStudents()"><option value="">كل الحالات</option><option>متقنة</option><option>تحتاج متابعة</option><option>تحتاج خطة علاجية</option></select></div><div id="studentsTable"></div></section>
-<section id="tests" class="page"><h2>الاختبارات الإلكترونية</h2><div class="toolbar"><button class="primary" onclick="createTest()">+ إنشاء اختبار</button><button class="secondary" onclick="openStudentTest()">تجربة كطالبة</button><button class="secondary" onclick="document.getElementById('answerImport').click()">📥 استيراد إجابات الطالبات</button><input id="answerImport" type="file" accept=".json,application/json" hidden onchange="importStudentAnswers(this)"><a href="student.html" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:10px 14px;border:1px solid #e5e7eb;border-radius:9px;background:white;color:#315c57;text-decoration:none">معاينة بوابة الطالبة</a></div><div id="testsList"></div><div id="testEditor"></div></section>
+<section id="tests" class="page"><h2>الاختبارات الإلكترونية</h2><div class="toolbar"><button class="primary" onclick="createTest()">+ إنشاء اختبار</button><button class="secondary" onclick="openStudentTest()">تجربة كطالبة</button><button class="secondary" onclick="document.getElementById('answerImport').click()">📥 استيراد إجابات الطالبات</button><button class="primary" onclick="window.syncStudentSubmissions && window.syncStudentSubmissions()">☁️ جلب إجابات الطالبات وتصحيحها</button><input id="answerImport" type="file" accept=".json,application/json" hidden onchange="importStudentAnswers(this)"><a href="student.html" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:10px 14px;border:1px solid #e5e7eb;border-radius:9px;background:white;color:#315c57;text-decoration:none">معاينة بوابة الطالبة</a></div><div id="testsList"></div><div id="testEditor"></div></section>
 <section id="results" class="page"><h2>النتائج وتحليل المهارات</h2><p class="muted">عرض جدولي بدون رسوم بيانية.</p><div id="resultsTable"></div></section>
 <section id="plans" class="page"><h2>الخطط العلاجية</h2><div id="plansTable"></div></section>
 <section id="follow" class="page"><h2>المتابعة</h2><div id="followTable"></div></section>
@@ -200,11 +200,11 @@ async function shareStudentTestLink(id){
  const t=db.tests.find(x=>x.id===id);
  if(!t||t.state!=='معتمد'||!t.items?.length)return alert('اعتمدي الاختبار وأضيفي أسئلته أولًا');
  const questions=t.items.map(q=>({type:q.type,text:String(q.text||''),skill:String(q.skill||''),options:Array.isArray(q.options)?q.options.map(String):[]}));
- const payload=JSON.stringify({title:String(t.title),questions});
+ const payload=JSON.stringify({testId:String(t.id),title:String(t.title),questions});
  const encoded=btoa(unescape(encodeURIComponent(payload))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
  const link=new URL('student.html',location.href);link.hash='quiz='+encoded;
  if(link.href.length>7000)return alert('الاختبار كبير على رابط مباشر. استخدمي ملف أسئلة الطالبات حاليًا.');
- try{await navigator.clipboard.writeText(link.href);alert('تم نسخ رابط الاختبار. أرسليه للطالبة. لا يتطلب تحميل ملف الأسئلة، لكن النتائج لا تُرسل تلقائيًا، ولا يوجد تحقق آمن من الهوية أو رمز سري.');}
+ try{await navigator.clipboard.writeText(link.href);alert('تم نسخ رابط الاختبار دون رمز. محاولة حفظ الإجابات تلقائيًا تعتمد على تفعيل Firebase للطالبات؛ إذا تعذر الاتصال سيُنزّل ملف احتياطي.');}
  catch(e){prompt('انسخي الرابط وأرسليه للطالبة:',link.href);}
 }
 function previewInStudentPortal(id){
@@ -266,7 +266,8 @@ import {
   setDoc,
   deleteDoc,
   doc,
-  collection
+  collection,
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -306,6 +307,29 @@ window.publishQuestionsToFirebase = async function(testId){
    console.error('Question publishing failed',error);
    alert('لم يُنشر الاختبار. قواعد Firebase الحالية قد تمنع الكتابة، وهذا متوقع حتى إتمام اختبار الحماية. لم تتغير بيانات الطالبات.');
  }
+};
+window.syncStudentSubmissions=async function(){
+ if(!auth.currentUser){alert("سجّلي دخول المعلمة أولًا");return;}
+ try{
+  const snapshot=await getDocs(collection(firestoreDB,"studentSubmissions"));
+  let graded=0,skipped=0;
+  for(const record of snapshot.docs){
+   const data=record.data();
+   if(data.status==="graded")continue;
+   const test=db.tests.find(t=>t.state==='معتمد'&&String(t.id)===String(data.testId)&&t.title===data.title&&Array.isArray(data.questions)&&t.items.length===data.questions.length&&t.items.every((q,i)=>q.text===data.questions[i].text&&q.skill===data.questions[i].skill));
+   const matches=db.students.filter(s=>s.name?.trim()===String(data.studentName||'').trim());
+   if(!test||matches.length!==1||!Array.isArray(data.answers)||data.answers.length!==test.items.length||data.answers.some((a,i)=>!Number.isInteger(a)||a<0||a>=test.items[i].options.length)){skipped++;continue;}
+   const student=matches[0],skills={};let correct=0;
+   test.items.forEach((q,i)=>{const ok=data.answers[i]===q.correct;if(ok)correct++;if(!skills[q.skill])skills[q.skill]={right:0,total:0};skills[q.skill].total++;if(ok)skills[q.skill].right++});
+   student.score=Math.round(correct/test.items.length*100);
+   student.skills=Object.entries(skills).filter(([k,v])=>Math.round(v.right/v.total*100)<db.mastery).map(([k])=>k);
+   student.lastTest=test.title;student.skillResults=skills;
+   await updateDoc(record.ref,{status:"graded",gradedAt:new Date().toISOString()});
+   graded++;
+  }
+  if(graded)persist();
+  alert("تم تصحيح "+graded+" إجابة. إجابات تحتاج مراجعة: "+skipped+". إذا لم تصل إجابات فتحققي من إعدادات Firebase.");
+ }catch(error){console.error(error);alert("تعذر جلب الإجابات من Firebase. تحققي من الصلاحيات واتصال الإنترنت.");}
 };
 let cloudReady = false;
 let syncing = false;
